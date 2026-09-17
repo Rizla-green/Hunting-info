@@ -1,0 +1,405 @@
+:root {
+  --navy: #14251b;       /* deep green-black, from the logo/icon set */
+  --navy-light: #1e3327;
+  --gold: #cda85e;
+  --gold-dim: #a8894b;
+  --cream: #f4f1e8;
+  --red: #b22234;
+  --text-on-dark: #f4f1e8;
+  --border-radius: 18px;
+  --gap: 14px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: Georgia, 'Times New Roman', serif;
+  background: var(--navy);
+  color: var(--text-on-dark);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.hidden { display: none !important; }
+
+/* ---------- Header ---------- */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 16px 10px;
+}
+.app-header img {
+  width: 88px;
+  height: 88px;
+  border-radius: 20px;
+}
+
+/* ---------- Menu grid ---------- */
+.menu-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--gap);
+  padding: 12px 16px 24px;
+  max-width: 520px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.menu-tile {
+  background: var(--navy-light);
+  border: 1px solid var(--gold-dim);
+  border-radius: var(--border-radius);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 6px 12px;
+  cursor: pointer;
+  transition: transform 0.12s ease, border-color 0.12s ease;
+}
+.menu-tile:active { transform: scale(0.96); }
+.menu-tile:hover { border-color: var(--gold); }
+
+.menu-tile img {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  margin-bottom: 8px;
+  border-radius: 10px;
+  background: var(--cream);
+  padding: 4px;
+}
+
+.menu-tile span {
+  font-size: 13px;
+  letter-spacing: 0.3px;
+  text-align: center;
+  color: var(--cream);
+}
+
+/* Land and Farms sits alone, full-width, at the bottom of the grid */
+.menu-tile.land-farms {
+  grid-column: 1 / -1;
+  flex-direction: row;
+  justify-content: center;
+  gap: 12px;
+  padding: 14px;
+}
+.menu-tile.land-farms img { margin-bottom: 0; width: 40px; height: 40px; }
+
+/* ---------- Version footer ---------- */
+.version-footer {
+  text-align: center;
+  font-size: 11px;
+  color: var(--gold-dim);
+  padding: 6px 0 16px;
+  letter-spacing: 0.5px;
+}
+
+/* ---------- Login screen ---------- */
+.login-screen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  gap: 16px;
+}
+.login-screen img { width: 110px; height: 110px; border-radius: 24px; }
+.login-screen h1 {
+  font-size: 20px;
+  letter-spacing: 1px;
+  color: var(--gold);
+  margin: 0;
+}
+.login-form {
+  width: 100%;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.login-form input {
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--gold-dim);
+  background: var(--navy-light);
+  color: var(--cream);
+  font-size: 15px;
+}
+.login-form button {
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  background: var(--gold);
+  color: var(--navy);
+  font-weight: bold;
+  font-size: 15px;
+  cursor: pointer;
+}
+.login-error {
+  color: var(--red);
+  font-size: 13px;
+  min-height: 16px;
+  text-align: center;
+}
+
+/* ---------- Options button on menu screen ---------- */
+.options-button {
+  display: block;
+  margin: 4px auto 0;
+  background: none;
+  border: none;
+  color: var(--gold-dim);
+  font-size: 13px;
+  letter-spacing: 1px;
+  cursor: pointer;
+  padding: 8px;
+}
+.options-button:hover { color: var(--gold); }
+
+/* ---------- Options screen ---------- */
+.options-screen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  max-width: 480px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 16px 20px 24px;
+}
+.back-button {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  color: var(--gold);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px 0 16px;
+}
+.options-screen h2 {
+  color: var(--gold);
+  margin: 0 0 18px;
+  font-size: 20px;
+}
+.options-section {
+  background: var(--navy-light);
+  border: 1px solid var(--gold-dim);
+  border-radius: var(--border-radius);
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.options-section h3 {
+  margin: 0 0 8px;
+  color: var(--gold);
+  font-size: 15px;
+}
+.options-hint {
+  font-size: 12px;
+  color: var(--cream);
+  opacity: 0.75;
+  margin: 0 0 10px;
+  line-height: 1.4;
+}
+.options-section input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--gold-dim);
+  background: var(--navy);
+  color: var(--cream);
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+.options-section button {
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: none;
+  background: var(--gold);
+  color: var(--navy);
+  font-weight: bold;
+  font-size: 13px;
+  cursor: pointer;
+}
+.options-status {
+  font-size: 12px;
+  color: var(--gold-dim);
+  margin-top: 8px;
+}
+
+/* ---------- Shared modal overlay ---------- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 100;
+}
+.modal-box {
+  background: var(--navy-light);
+  border: 1px solid var(--gold-dim);
+  border-radius: var(--border-radius);
+  padding: 16px;
+  width: 100%;
+  max-width: 420px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.map-modal-box { max-width: 640px; }
+.map-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.map-modal-header h3 { margin: 0; color: var(--gold); font-size: 16px; }
+.icon-btn {
+  background: none;
+  border: none;
+  color: var(--cream);
+  font-size: 18px;
+  cursor: pointer;
+}
+.land-map-container {
+  height: 340px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--gold-dim);
+  background: #ddd;
+}
+.land-layer-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.layer-toggle {
+  background: var(--navy);
+  border: 1.5px solid;
+  border-radius: 20px;
+  color: var(--cream);
+  font-size: 12px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.layer-toggle.active { background: var(--gold); color: var(--navy); font-weight: bold; }
+.layer-vis-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 4px 2px;
+  opacity: 0.7;
+}
+.land-map-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.land-map-actions .btn,
+.farm-list .btn {
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: none;
+  background: var(--gold);
+  color: var(--navy);
+  font-weight: bold;
+  font-size: 13px;
+  cursor: pointer;
+}
+.land-map-actions .btn.ghost {
+  background: none;
+  border: 1px solid var(--gold-dim);
+  color: var(--gold);
+}
+.farm-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.hint { font-size: 12px; color: var(--cream); opacity: 0.75; margin-top: 10px; line-height: 1.4; }
+
+/* ---------- Species log ---------- */
+.species-modal-box { max-width: 640px; }
+.species-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.tab-btn {
+  background: var(--navy);
+  border: 1px solid var(--gold-dim);
+  border-radius: 20px;
+  color: var(--cream);
+  font-size: 12px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.tab-btn.active { background: var(--gold); color: var(--navy); font-weight: bold; border-color: var(--gold); }
+.log-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--navy);
+  flex-wrap: wrap;
+}
+.log-row input, .log-row select {
+  background: var(--navy);
+  border: 1px solid var(--gold-dim);
+  color: var(--cream);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 12.5px;
+  flex: 1;
+  min-width: 90px;
+}
+.grouped-block { margin-bottom: 14px; }
+.grouped-block h4 { color: var(--gold); margin: 0 0 6px; font-size: 14px; }
+.grouped-count { color: var(--gold-dim); font-weight: normal; font-size: 12px; }
+.grouped-row {
+  display: flex;
+  gap: 14px;
+  font-size: 12.5px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--navy);
+}
+.species-modal-box .btn.small,
+.log-row .icon-btn {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: none;
+  background: var(--gold);
+  color: var(--navy);
+  font-weight: bold;
+  font-size: 12.5px;
+  cursor: pointer;
+  margin-top: 8px;
+}
+.log-row .icon-btn { background: none; color: var(--red); font-size: 16px; padding: 4px; margin: 0; }
+
+/* ---------- Zeroing ---------- */
+.zeroing-session {
+  border-bottom: 1px solid var(--gold-dim);
+  padding: 10px 0;
+}
+.zeroing-location-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 6px 0;
+  flex-wrap: wrap;
+}
+.btn.ghost.small {
+  background: none;
+  border: 1px solid var(--gold-dim);
+  color: var(--gold);
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.zeroing-photo-row { display: flex; align-items: center; gap: 10px; }
+.zeroing-photo-row input[type="file"] { font-size: 11px; color: var(--cream); }
+.zeroing-thumb { width: 48px; height: 48px; object-fit: cover; border-radius: 8px; border: 1px solid var(--gold-dim); }
