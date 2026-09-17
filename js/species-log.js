@@ -18,16 +18,28 @@
    AM/PM) until then.
 ===================================================================== */
 
+const GAME_BIRD_LIST = ["Pheasant", "Mallard", "Wigeon", "French partridge", "English partridge", "Canada goose", "Greylag goose", "Pinkfoot goose", "Egyptian goose", "Snipe", "Woodcock"];
+const WINGED_VERMIN_LIST = ["Crow", "Rook", "Jackdaw", "Magpie", "Pigeon", "Jay"];
+const SQUIRREL_LIST = ["Male", "Female"];
+const FOX_LIST = ["Dog", "Vixen", "Dog cub", "Vixen cub"];
+
 const SPECIES_SECTIONS = {
-  fox:     { title: "Fox",           categories: ["Fox"] },
+  fox:     { title: "Fox",           categories: FOX_LIST },
   rabbit:  { title: "Rabbit",        categories: ["Rabbit"] },
   rats:    { title: "Rats",          categories: ["Rat"] },
-  squirrel:{ title: "Squirrels",     categories: ["Grey Squirrel"] },
-  winged:  { title: "Winged Vermin", categories: ["Pigeon", "Crow", "Magpie"] },
-  game:    { title: "Game Shooting", categories: ["Pheasant", "Partridge", "Duck"] },
-  goats:   { title: "Goats",         categories: ["Goat"] },
-  boar:    { title: "Boar",          categories: ["Boar"] },
-  clay:    { title: "Clay Shooting", categories: ["Clay"] },
+  squirrel:{ title: "Squirrels",     categories: SQUIRREL_LIST },
+  winged:  { title: "Winged Vermin", categories: WINGED_VERMIN_LIST },
+  // Game shooting's list is its own game birds, PLUS the whole Winged
+  // Vermin list, PLUS labelled Squirrel/Fox entries — keepers often
+  // account for those on a shoot day too. Matches v3.9's pestCategoriesFor().
+  game:    { title: "Game Shooting", categories: [
+              ...GAME_BIRD_LIST,
+              ...WINGED_VERMIN_LIST,
+              ...SQUIRREL_LIST.map((c) => `Squirrel (${c})`),
+              ...FOX_LIST.map((c) => `Fox (${c})`),
+            ] },
+  goats:   { title: "Goats",         categories: ["Billy", "Nanny", "Kid"] },
+  boar:    { title: "Boar",          categories: ["Boar", "Sow", "Piglet"] },
 };
 
 // Species with GPS/what3words shot-location support.

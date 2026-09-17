@@ -232,42 +232,58 @@ body {
   margin-top: 8px;
 }
 
-/* ---------- Shared modal overlay ---------- */
+/* ---------- Full-page section screens (was a popup overlay — now a
+   real page, matching v3.9: each section replaces the visible screen,
+   not a card floating on top of the menu) ---------- */
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
+  background: var(--navy);
   z-index: 100;
+  display: flex;
+  flex-direction: column;
 }
 .modal-box {
-  background: var(--navy-light);
-  border: 1px solid var(--gold-dim);
-  border-radius: var(--border-radius);
-  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   width: 100%;
-  max-width: 420px;
-  max-height: 90vh;
+  max-width: 640px;
+  margin: 0 auto;
+  box-sizing: border-box;
   overflow-y: auto;
 }
-.map-modal-box { max-width: 640px; }
+.map-modal-box { max-width: 720px; }
 .map-modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
+  padding: 16px 16px 10px;
+  flex-shrink: 0;
+  /* Stays put while the page scrolls — this is what was making the
+     close button unreachable on longer pages before. */
+  position: sticky;
+  top: 0;
+  background: var(--navy);
+  z-index: 2;
+  border-bottom: 1px solid var(--navy-light);
 }
-.map-modal-header h3 { margin: 0; color: var(--gold); font-size: 16px; }
+.map-modal-header h3 { margin: 0; color: var(--gold); font-size: 17px; }
 .icon-btn {
   background: none;
   border: none;
   color: var(--cream);
-  font-size: 18px;
+  font-size: 20px;
   cursor: pointer;
+  padding: 4px 8px;
 }
+/* Everything else a screen renders (tabs, body) sits below the fixed
+   header, all within the one page-level scroll. */
+.modal-box > *:not(.map-modal-header) {
+  padding-left: 16px;
+  padding-right: 16px;
+}
+.modal-box > *:last-child { padding-bottom: 24px; }
 .land-map-container {
   height: 340px;
   border-radius: 12px;
@@ -410,7 +426,7 @@ body {
 }
 
 /* ---------- Tracking ---------- */
-.tracking-list { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; max-height: 60vh; overflow-y: auto; }
+.tracking-list { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
 .tracking-row {
   text-align: left;
   background: var(--navy);
@@ -547,3 +563,17 @@ table.data-table select {
   text-align: center;
   padding: 0;
 }
+
+/* ---------- Stat cards (Clay Shooting) ---------- */
+.stat-cards { display: flex; gap: 8px; flex-wrap: wrap; }
+.stat-card {
+  background: var(--navy-light);
+  border: 1px solid var(--gold-dim);
+  border-radius: 10px;
+  padding: 10px 14px;
+  text-align: center;
+  flex: 1;
+  min-width: 90px;
+}
+.stat-card .num { color: var(--gold); font-size: 20px; font-weight: bold; }
+.stat-card .lbl { color: var(--cream); font-size: 10px; opacity: 0.75; margin-top: 2px; }

@@ -59,6 +59,10 @@ function openSection(key) {
     DeerLog.open();
     return;
   }
+  if (key === "clay") {
+    ClayShooting.open();
+    return;
+  }
   if (SPECIES_SECTIONS[key]) {
     SpeciesLog.open(key);
     return;
