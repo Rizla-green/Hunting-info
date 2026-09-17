@@ -93,13 +93,20 @@ function openLandAndFarms() {
         <h3>Land and Farms</h3>
         <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">✕</button>
       </div>
-      <p class="hint">Pick a farm to open its map.</p>
-      <div class="farm-list">
-        ${farms.map((f) => `<button class="btn secondary" onclick='LandAndFarms.open(${JSON.stringify(f)})'>${f.name}</button>`).join("")}
+      <input type="text" id="farmSearchInput" placeholder="Search farms…" oninput="filterFarmList(this.value)" style="width:100%; box-sizing:border-box; padding:8px 10px; border-radius:8px; border:1px solid var(--gold-dim); background:var(--navy); color:var(--cream); margin-bottom:10px;" />
+      <div class="farm-list" id="farmListItems">
+        ${farms.map((f) => `<button class="btn secondary farm-list-item" data-name="${f.name.toLowerCase()}" onclick="FarmProfile.open('${f.id}')">${f.name}</button>`).join("")}
       </div>
       <button class="btn small" style="margin-top:12px;" onclick="addFarm()">+ Add farm</button>
     </div>`;
   overlay.classList.remove("hidden");
+}
+
+function filterFarmList(query) {
+  const q = query.trim().toLowerCase();
+  document.querySelectorAll(".farm-list-item").forEach((btn) => {
+    btn.style.display = btn.dataset.name.includes(q) ? "" : "none";
+  });
 }
 
 // Shared across the app — Land and Farms, and every species log's farm

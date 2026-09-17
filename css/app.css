@@ -378,6 +378,36 @@ body {
   margin-top: 8px;
 }
 .log-row .icon-btn { background: none; color: var(--red); font-size: 16px; padding: 4px; margin: 0; }
+.overview-alltime { color: var(--cream); font-size: 13px; opacity: 0.85; }
+
+/* ---------- Farm Profile ---------- */
+.farm-notes {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 70px;
+  background: var(--navy);
+  border: 1px solid var(--gold-dim);
+  border-radius: 8px;
+  color: var(--cream);
+  padding: 8px 10px;
+  font-size: 12.5px;
+  font-family: Georgia, serif;
+  resize: vertical;
+}
+.tick-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px 10px;
+  margin-bottom: 6px;
+}
+.tick-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--cream);
+  font-size: 12px;
+  padding: 3px 0;
+}
 
 /* ---------- Tracking ---------- */
 .tracking-list { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; max-height: 60vh; overflow-y: auto; }
