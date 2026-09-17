@@ -34,6 +34,7 @@ const CORE_FILES = [
   "./icons_final/clay.png",
   "./icons_final/zero.png",
   "./icons_final/hazzard.png",
+  "./icons_final/firearms.png",
   "./icons_final/gate.png",
   "./icons_final/water.png",
   "./icons_final/building.png",
