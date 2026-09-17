@@ -244,7 +244,7 @@ const DeerLog = {
     const tabs = [
       ["overview", "Overview"], ["setup", "Setup"], ["counts", "Deer Counts"],
       ...(hasCullPlan ? [["quota", "Cull Quota Plan"]] : []),
-      ["dashboard", "Dashboard"],
+      ["log", "Cull Record Log"], ["dashboard", "Dashboard"],
     ];
     return tabs
       .map(([key, label]) => `<button class="tab-btn ${this.farmTab === key ? "active" : ""}" onclick="DeerLog.setFarmTab('${key}')">${label}</button>`)
@@ -261,6 +261,7 @@ const DeerLog = {
       case "setup": body.innerHTML = this.renderSetup(farm); break;
       case "counts": body.innerHTML = `<p class="hint">Deer Counts are imported from your Deer Count app rather than logged here.</p>`; break;
       case "quota": body.innerHTML = this.renderQuotaPlan(farm); break;
+      case "log": body.innerHTML = this.renderCullRecordLog(); break;
       case "dashboard": body.innerHTML = this.renderDashboard(farm); break;
       default: body.innerHTML = this.renderOverview();
     }
@@ -294,16 +295,7 @@ const DeerLog = {
         ${totalsRows}
         <div class="grouped-row" style="border-top:1px solid var(--gold-dim); font-weight:bold;"><span>All species</span><span>${grandTotal}</span></div>
       </div>
-      <button class="btn small" onclick="DeerLog.addEntry()">+ Add entry</button>
-      <label class="btn small ghost" style="display:inline-block; margin-left:8px; cursor:pointer;">
-        📷 Add via camera
-        <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="DeerLog.addEntryFromCamera(this)" />
-      </label>
-      <div class="species-tabs" style="margin-top:14px;">
-        <button class="tab-btn ${this.subView === "log" ? "active" : ""}" onclick="DeerLog.setSubView('log')">Cull Record Log</button>
-        <button class="tab-btn ${this.subView === "by-field" ? "active" : ""}" onclick="DeerLog.setSubView('by-field')">By Field Name</button>
-      </div>
-      <div style="margin-top:8px;">${this.subView === "log" ? this.renderFlatLog() : this.renderGroupedByField()}</div>`;
+      ${this.currentFarmId ? "" : `<p class="hint">Open a farm under Locations to add or view Cull Record Log entries.</p>`}`;
   },
 
   renderSetup(farm) {
@@ -405,11 +397,37 @@ const DeerLog = {
 
   renderCullRecordLog() {
     return `
-      <div class="species-tabs">
+      <button class="btn small" onclick="DeerLog.addEntry()">+ Add entry</button>
+      <label class="btn small ghost" style="display:inline-block; margin-left:8px; cursor:pointer;">
+        📷 Add via camera
+        <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="DeerLog.addEntryFromCamera(this)" />
+      </label>
+      <div class="species-tabs" style="margin-top:14px;">
         <button class="tab-btn ${this.subView === "log" ? "active" : ""}" onclick="DeerLog.setSubView('log')">Entry Log</button>
         <button class="tab-btn ${this.subView === "by-field" ? "active" : ""}" onclick="DeerLog.setSubView('by-field')">By Field Name</button>
       </div>
       <div style="margin-top:8px;">${this.subView === "log" ? this.renderFlatLog() : this.renderGroupedByField()}</div>`;
+  },
+
+  // ---------- Multi-photo ----------
+  addPhoto(idx, inputEl) {
+    const file = inputEl.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const entry = this.entries()[idx];
+      entry.photos = entry.photos || [];
+      entry.photos.push(reader.result);
+      const photoIdx = entry.photos.length - 1;
+      this.saveAndRender();
+      uploadAndReplace(entry.photos, photoIdx);
+    };
+    reader.readAsDataURL(file);
+  },
+  removePhoto(idx, photoIdx) {
+    if (!confirm("Remove this photo? This can't be undone.")) return;
+    this.entries()[idx].photos.splice(photoIdx, 1);
+    this.saveAndRender();
   },
 
   renderFlatLog() {
@@ -419,8 +437,13 @@ const DeerLog = {
     const rows = entries
       .map((e) => {
         const idx = this.entries().indexOf(e);
+        const photos = e.photos || [];
+        const photoThumbs = photos
+          .map((p, pIdx) => `<span class="photo-thumb-wrap"><img src="${cloudinaryThumb(p, 60)}" class="zeroing-thumb" /><button class="icon-btn photo-remove" onclick="DeerLog.removePhoto(${idx},${pIdx})">✕</button></span>`)
+          .join("");
         return `
-      <div class="log-row">
+      <div class="log-row-card">
+        <div class="log-row">
         <input type="date" value="${e.date}" onchange="DeerLog.updateEntry(${idx},'date',this.value)" />
         ${showFarmColumn ? `
         <select onchange="DeerLog.updateEntry(${idx},'farmId',this.value)">
@@ -436,18 +459,29 @@ const DeerLog = {
         <select onchange="DeerLog.updateEntry(${idx},'age',this.value)">
           ${["Adult", "Young"].map((a) => `<option ${a === e.age ? "selected" : ""}>${a}</option>`).join("")}
         </select>
+        </div>
+        <div class="log-row">
         <input type="text" placeholder="Location" value="${e.location || ""}" onchange="DeerLog.updateEntry(${idx},'location',this.value)" />
         <input type="text" placeholder="///what3words" value="${e.what3words || ""}" onchange="DeerLog.updateEntry(${idx},'what3words',this.value)" />
         <select onchange="DeerLog.updateEntry(${idx},'condition',this.value)">
           ${DEER_CONDITIONS.map((c) => `<option ${c === e.condition ? "selected" : ""}>${c}</option>`).join("")}
         </select>
+        </div>
+        <div class="log-row">
         <select onchange="DeerLog.handleFirearmChange(${idx}, this)">
           <option value="" ${!e.firearm ? "selected" : ""}>Firearm…</option>
           ${Firearms.list().map((f) => `<option ${f === e.firearm ? "selected" : ""}>${f}</option>`).join("")}
           <option value="__add_new__">+ Add new firearm…</option>
         </select>
         <input type="text" placeholder="Notes" value="${e.notes || ""}" onchange="DeerLog.updateEntry(${idx},'notes',this.value)" />
-        <button class="icon-btn" onclick="DeerLog.removeEntry(${idx})">✕</button>
+        </div>
+        <div class="log-row photo-row">
+          ${photoThumbs}
+          <label class="btn small ghost" style="cursor:pointer;">+ Photo
+            <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="DeerLog.addPhoto(${idx}, this)" />
+          </label>
+          <button class="icon-btn" onclick="DeerLog.removeEntry(${idx})" style="margin-left:auto;">✕ Remove entry</button>
+        </div>
       </div>`;
       })
       .join("");
