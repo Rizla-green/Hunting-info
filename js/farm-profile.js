@@ -45,19 +45,19 @@ const FarmProfile = {
     const farm = this.findFarm(this.currentFarmId);
     this.ensureProfile(farm)[field] = value;
     if (field === "address") farm.address = value; // keep top-level address in sync for Cull Plan import matching
-    triggerBackup?.(window.APP_DATA);
+    persistData();
   },
 
   toggleSpecies(animal, checked) {
     const farm = this.findFarm(this.currentFarmId);
     this.ensureProfile(farm).species[animal] = checked;
-    triggerBackup?.(window.APP_DATA);
+    persistData();
   },
 
   toggleShared(sectionKey, checked) {
     const farm = this.findFarm(this.currentFarmId);
     this.ensureProfile(farm).sharedWith[sectionKey] = checked;
-    triggerBackup?.(window.APP_DATA);
+    persistData();
   },
 
   openMap() {

@@ -126,7 +126,7 @@ const CullPlanImport = {
       }
     });
 
-    triggerBackup?.(window.APP_DATA);
+    persistData();
     this.renderSummary(rows.length, farmsSeen.size);
   },
 

@@ -71,6 +71,8 @@ const SpeciesLog = {
       farmId: this.currentFarmId || farms[0]?.id || "other",
       area: "",
       what3words: "",
+      lat: null,
+      lng: null,
       category: def.categories[0],
       shots: 1,
       firearm: "",
@@ -82,23 +84,29 @@ const SpeciesLog = {
 
   // Camera → GPS → what3words → auto-match to a farm boundary, falling
   // back to "Other" when the point doesn't land inside any drawn farm.
+  // Photo saves locally immediately, then uploads to Cloudinary in the
+  // background — see cloudinary-upload.js for the offline-retry logic.
   addEntryFromCamera(inputEl) {
     LocationMatch.captureWithCamera(inputEl, (photoDataUrl, loc) => {
       const def = SPECIES_SECTIONS[this.currentSection];
       const farms = window.APP_DATA.farms || [];
-      this.entries().push({
+      const entry = {
         date: new Date().toISOString().slice(0, 10),
         ampm: "AM",
         farmId: loc ? loc.farmId : this.currentFarmId || farms[0]?.id || "other",
         area: "",
         what3words: loc ? loc.what3words : "",
+        lat: loc ? loc.lat : null,
+        lng: loc ? loc.lng : null,
         category: def.categories[0],
         shots: 1,
         firearm: "",
         photos: [photoDataUrl],
         notes: "",
-      });
+      };
+      this.entries().push(entry);
       this.saveAndRender();
+      uploadAndReplace(entry.photos, 0);
     });
   },
 
@@ -129,7 +137,7 @@ const SpeciesLog = {
   },
 
   saveAndRender() {
-    triggerBackup?.(window.APP_DATA);
+    persistData();
     this.render();
   },
 
@@ -174,7 +182,8 @@ const SpeciesLog = {
         <div class="species-tabs">
           <button class="tab-btn ${this.topTab === "overview" ? "active" : ""}" onclick="SpeciesLog.setTopTab('overview')">Overview</button>
           ${!inFarm ? `<button class="tab-btn ${this.topTab === "locations" ? "active" : ""}" onclick="SpeciesLog.setTopTab('locations')">Locations</button>` : ""}
-          ${inFarm && w3wEnabled ? `<button class="tab-btn" onclick="alert('Shot-location map opens here once the maps phase is wired up.')">📍 Map</button>` : ""}
+          ${!inFarm && w3wEnabled ? `<button class="tab-btn" onclick="ShotLocationMap.open('${this.currentSection}', null)">📍 Map (all farms)</button>` : ""}
+          ${inFarm && w3wEnabled ? `<button class="tab-btn" onclick="ShotLocationMap.open('${this.currentSection}', '${this.currentFarmId}')">📍 Map</button>` : ""}
           ${this.currentSection === "fox" ? `<button class="tab-btn" onclick="ReferenceInfo.foxBoarLifecycle('Fox')">Lifecycle</button>` : ""}
           ${this.currentSection === "boar" ? `<button class="tab-btn" onclick="ReferenceInfo.foxBoarLifecycle('Wild boar')">Lifecycle</button><button class="tab-btn" onclick="ReferenceInfo.boarDisease()">Disease</button>` : ""}
           ${this.currentSection === "game" ? `<button class="tab-btn" onclick="ReferenceInfo.gameSeasons()">Game Seasons</button>` : ""}
@@ -235,16 +244,12 @@ const SpeciesLog = {
       <label class="btn small ghost" style="display:inline-block; margin-left:8px; cursor:pointer;">
         📷 Add via camera
         <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="SpeciesLog.addEntryFromCamera(this)" />
-      </label>` : ""}`;
-
-    if (this.currentFarmId) {
-      html += `
-        <div class="species-tabs" style="margin-top:14px;">
-          <button class="tab-btn ${this.subView === "log" ? "active" : ""}" onclick="SpeciesLog.setSubView('log')">Entry Log</button>
-          <button class="tab-btn ${this.subView === "by-field" ? "active" : ""}" onclick="SpeciesLog.setSubView('by-field')">By Field Name</button>
-        </div>
-        <div style="margin-top:8px;">${this.subView === "log" ? this.renderFlatLog() : this.renderGroupedByField()}</div>`;
-    }
+      </label>` : ""}
+      <div class="species-tabs" style="margin-top:14px;">
+        <button class="tab-btn ${this.subView === "log" ? "active" : ""}" onclick="SpeciesLog.setSubView('log')">Entry Log</button>
+        <button class="tab-btn ${this.subView === "by-field" ? "active" : ""}" onclick="SpeciesLog.setSubView('by-field')">By Field Name</button>
+      </div>
+      <div style="margin-top:8px;">${this.subView === "log" ? this.renderFlatLog() : this.renderGroupedByField()}</div>`;
 
     return html;
   },
@@ -253,12 +258,19 @@ const SpeciesLog = {
     const entries = this.scopedEntries();
     const def = SPECIES_SECTIONS[this.currentSection];
     const w3wEnabled = W3W_SPECIES.includes(this.currentSection);
+    const farms = window.APP_DATA.farms || [];
+    const showFarmColumn = !this.currentFarmId;
     const rows = entries
       .map((e) => {
         const idx = this.entries().indexOf(e);
         return `
       <div class="log-row">
         <input type="date" value="${e.date}" onchange="SpeciesLog.updateEntry(${idx},'date',this.value)" />
+        ${showFarmColumn ? `
+        <select onchange="SpeciesLog.updateEntry(${idx},'farmId',this.value)">
+          ${farms.map((f) => `<option value="${f.id}" ${f.id === (e.farmId || "other") ? "selected" : ""}>${f.name}</option>`).join("")}
+          <option value="other" ${(e.farmId || "other") === "other" ? "selected" : ""}>Other</option>
+        </select>` : ""}
         <select onchange="SpeciesLog.updateEntry(${idx},'category',this.value)">
           ${def.categories.map((c) => `<option ${c === e.category ? "selected" : ""}>${c}</option>`).join("")}
         </select>
@@ -269,11 +281,12 @@ const SpeciesLog = {
           <option value="" ${!e.firearm ? "selected" : ""}>Firearm…</option>
           ${this.firearmOptionsHtml(e.firearm)}
         </select>
+        <input type="text" placeholder="Notes" value="${e.notes || ""}" onchange="SpeciesLog.updateEntry(${idx},'notes',this.value)" />
         <button class="icon-btn" onclick="SpeciesLog.removeEntry(${idx})">✕</button>
       </div>`;
       })
       .join("");
-    return rows || '<p class="hint">No entries yet.</p>';
+    return rows || '<p class="hint">No entries yet — tap "+ Add entry" above to log one.</p>';
   },
 
   renderGroupedByField() {

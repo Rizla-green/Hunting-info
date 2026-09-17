@@ -124,7 +124,7 @@ function addFarm() {
     postcode,
   });
   // TODO: Firestore write here, then triggerBackup(window.APP_DATA) for Dropbox.
-  triggerBackup?.(window.APP_DATA);
+  persistData();
   openLandAndFarms();
 }
 
@@ -237,11 +237,15 @@ function isAdminUser(user) {
 }
 
 function watchAuthState() {
-  firebaseAuth.onAuthStateChanged((user) => {
+  firebaseAuth.onAuthStateChanged(async (user) => {
     if (user) {
       window.APP_DATA.currentUser = { email: user.email, isAdmin: isAdminUser(user) };
       document.getElementById("loginScreen").classList.add("hidden");
+      // Show the menu shell immediately, then swap in real data once it's
+      // loaded — avoids a blank screen while Firestore responds.
       document.getElementById("menuScreen").classList.remove("hidden");
+      await loadAppData();
+      renderMenu();
     } else {
       window.APP_DATA.currentUser = null;
       document.getElementById("menuScreen").classList.add("hidden");
@@ -269,6 +273,7 @@ document.addEventListener("DOMContentLoaded", () => {
   renderVersion();
   registerServiceWorker();
   initFirebase();
+  initFirestore();
   if (firebaseAuth) watchAuthState();
   document.getElementById("loginForm").addEventListener("submit", handleLogin);
   document.getElementById("optionsButton").addEventListener("click", openOptions);

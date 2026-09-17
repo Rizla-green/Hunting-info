@@ -86,6 +86,8 @@ const DeerLog = {
       farmId: this.currentFarmId || last?.farmId || farms[0]?.id || "other",
       location: last ? last.location : "",
       what3words: "",
+      lat: null,
+      lng: null,
       weight: "",
       tag: "",
       firearm: last ? last.firearm : "",
@@ -104,13 +106,15 @@ const DeerLog = {
 
   // Camera → GPS → what3words → auto-match to a farm boundary, falling
   // back to "Other" when the point doesn't land inside any drawn farm.
+  // Photo saves locally immediately, then uploads to Cloudinary in the
+  // background — see cloudinary-upload.js for the offline-retry logic.
   addEntryFromCamera(inputEl) {
     LocationMatch.captureWithCamera(inputEl, (photoDataUrl, loc) => {
       const entries = this.entries();
       const last = entries[entries.length - 1];
       const farms = window.APP_DATA.farms || [];
       const defSpecies = Object.keys(SPECIES_TERMS)[0];
-      entries.push({
+      const entry = {
         date: new Date().toISOString().slice(0, 10),
         species: defSpecies,
         sex: SPECIES_TERMS[defSpecies].male,
@@ -118,6 +122,8 @@ const DeerLog = {
         farmId: loc ? loc.farmId : this.currentFarmId || last?.farmId || farms[0]?.id || "other",
         location: last ? last.location : "",
         what3words: loc ? loc.what3words : "",
+        lat: loc ? loc.lat : null,
+        lng: loc ? loc.lng : null,
         weight: "",
         tag: "",
         firearm: last ? last.firearm : "",
@@ -130,8 +136,10 @@ const DeerLog = {
         shotPlacement: "",
         photos: [photoDataUrl],
         notes: "",
-      });
+      };
+      entries.push(entry);
       this.saveAndRender();
+      uploadAndReplace(entry.photos, 0);
     });
   },
 
@@ -159,7 +167,7 @@ const DeerLog = {
   },
 
   saveAndRender() {
-    triggerBackup?.(window.APP_DATA);
+    persistData();
     this.render();
   },
 
@@ -210,6 +218,7 @@ const DeerLog = {
           ${inFarm ? this.farmTabsHtml() : this.topTabsHtml()}
         </div>
         ${!inFarm ? "" : `<div class="species-tabs" style="margin-top:4px;">
+          <button class="tab-btn" onclick="ShotLocationMap.open('deer', '${this.currentFarmId}')">📍 Map</button>
           <button class="tab-btn" onclick="ReferenceInfo.seasons()">Seasons</button>
           <button class="tab-btn" onclick="ReferenceInfo.lymphNodes()">Lymph Nodes</button>
           <button class="tab-btn" onclick="ReferenceInfo.deerDisease()">Disease</button>
@@ -225,7 +234,8 @@ const DeerLog = {
   topTabsHtml() {
     return `
       <button class="tab-btn ${this.topTab === "overview" ? "active" : ""}" onclick="DeerLog.setTopTab('overview')">Overview</button>
-      <button class="tab-btn ${this.topTab === "locations" ? "active" : ""}" onclick="DeerLog.setTopTab('locations')">Locations</button>`;
+      <button class="tab-btn ${this.topTab === "locations" ? "active" : ""}" onclick="DeerLog.setTopTab('locations')">Locations</button>
+      <button class="tab-btn" onclick="ShotLocationMap.open('deer', null)">📍 Map (all farms)</button>`;
   },
 
   farmTabsHtml() {
@@ -234,7 +244,7 @@ const DeerLog = {
     const tabs = [
       ["overview", "Overview"], ["setup", "Setup"], ["counts", "Deer Counts"],
       ...(hasCullPlan ? [["quota", "Cull Quota Plan"]] : []),
-      ["log", "Cull Record Log"], ["dashboard", "Dashboard"],
+      ["dashboard", "Dashboard"],
     ];
     return tabs
       .map(([key, label]) => `<button class="tab-btn ${this.farmTab === key ? "active" : ""}" onclick="DeerLog.setFarmTab('${key}')">${label}</button>`)
@@ -251,7 +261,6 @@ const DeerLog = {
       case "setup": body.innerHTML = this.renderSetup(farm); break;
       case "counts": body.innerHTML = `<p class="hint">Deer Counts are imported from your Deer Count app rather than logged here.</p>`; break;
       case "quota": body.innerHTML = this.renderQuotaPlan(farm); break;
-      case "log": body.innerHTML = this.renderCullRecordLog(); break;
       case "dashboard": body.innerHTML = this.renderDashboard(farm); break;
       default: body.innerHTML = this.renderOverview();
     }
@@ -289,7 +298,12 @@ const DeerLog = {
       <label class="btn small ghost" style="display:inline-block; margin-left:8px; cursor:pointer;">
         📷 Add via camera
         <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="DeerLog.addEntryFromCamera(this)" />
-      </label>`;
+      </label>
+      <div class="species-tabs" style="margin-top:14px;">
+        <button class="tab-btn ${this.subView === "log" ? "active" : ""}" onclick="DeerLog.setSubView('log')">Cull Record Log</button>
+        <button class="tab-btn ${this.subView === "by-field" ? "active" : ""}" onclick="DeerLog.setSubView('by-field')">By Field Name</button>
+      </div>
+      <div style="margin-top:8px;">${this.subView === "log" ? this.renderFlatLog() : this.renderGroupedByField()}</div>`;
   },
 
   renderSetup(farm) {
@@ -400,12 +414,19 @@ const DeerLog = {
 
   renderFlatLog() {
     const entries = this.scopedEntries();
+    const farms = window.APP_DATA.farms || [];
+    const showFarmColumn = !this.currentFarmId;
     const rows = entries
       .map((e) => {
         const idx = this.entries().indexOf(e);
         return `
       <div class="log-row">
         <input type="date" value="${e.date}" onchange="DeerLog.updateEntry(${idx},'date',this.value)" />
+        ${showFarmColumn ? `
+        <select onchange="DeerLog.updateEntry(${idx},'farmId',this.value)">
+          ${farms.map((f) => `<option value="${f.id}" ${f.id === (e.farmId || "other") ? "selected" : ""}>${f.name}</option>`).join("")}
+          <option value="other" ${(e.farmId || "other") === "other" ? "selected" : ""}>Other</option>
+        </select>` : ""}
         <select onchange="DeerLog.updateEntry(${idx},'species',this.value)">
           ${Object.keys(SPECIES_TERMS).map((s) => `<option ${s === e.species ? "selected" : ""}>${s}</option>`).join("")}
         </select>
@@ -425,11 +446,12 @@ const DeerLog = {
           ${Firearms.list().map((f) => `<option ${f === e.firearm ? "selected" : ""}>${f}</option>`).join("")}
           <option value="__add_new__">+ Add new firearm…</option>
         </select>
+        <input type="text" placeholder="Notes" value="${e.notes || ""}" onchange="DeerLog.updateEntry(${idx},'notes',this.value)" />
         <button class="icon-btn" onclick="DeerLog.removeEntry(${idx})">✕</button>
       </div>`;
       })
       .join("");
-    return rows || '<p class="hint">No entries yet.</p>';
+    return rows || '<p class="hint">No entries yet — tap "+ Add entry" above to log one.</p>';
   },
 
   renderGroupedByField() {

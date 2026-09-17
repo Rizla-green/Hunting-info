@@ -111,8 +111,15 @@ const Zeroing = {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
-      this.data()[this.currentCaliber][idx].photo = reader.result;
+      const session = this.data()[this.currentCaliber][idx];
+      session.photo = reader.result;
       this.saveAndRender();
+      // Uploads to Cloudinary in the background; if offline, the local
+      // copy just displayed stays in place until the next retry — see
+      // cloudinary-upload.js.
+      uploadPhotoToCloudinary(session.photo).then((url) => {
+        if (url) { session.photo = url; persistData(); }
+      });
     };
     reader.readAsDataURL(file);
   },
@@ -120,7 +127,7 @@ const Zeroing = {
   saveAndRender() {
     // TODO: Firestore write, then triggerBackup(window.APP_DATA) for Dropbox.
     // Cloudinary upload replaces the raw data-URL photo storage once wired.
-    triggerBackup?.(window.APP_DATA);
+    persistData();
     if (this.currentCaliber) this.render();
   },
 
@@ -160,7 +167,7 @@ const Zeroing = {
         </div>
         <div class="zeroing-photo-row">
           <input type="file" accept="image/*" capture="environment" onchange="Zeroing.addPhoto(${idx}, this)" />
-          ${s.photo ? `<img src="${s.photo}" class="zeroing-thumb" />` : ""}
+          ${s.photo ? `<img src="${cloudinaryThumb(s.photo, 96)}" class="zeroing-thumb" />` : ""}
         </div>
       </div>`;
       })
