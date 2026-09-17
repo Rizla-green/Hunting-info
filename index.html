@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<!-- Hunting Info - v4.0.0 -->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Hunting Info</title>
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="icons_final/logo-192.png" />
+<meta name="theme-color" content="#14251b" />
+<link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+
+  <!-- ===== Login screen ===== -->
+  <div id="loginScreen" class="login-screen">
+    <img src="icons_final/logo-512.png" alt="Hunting Info" />
+    <h1>Hunting Info</h1>
+    <form id="loginForm" class="login-form">
+      <input type="email" id="loginEmail" placeholder="Email" autocomplete="username" required />
+      <input type="password" id="loginPassword" placeholder="Password" autocomplete="current-password" required />
+      <div id="loginError" class="login-error"></div>
+      <button type="submit">Log in</button>
+    </form>
+    <div class="version-footer app-version">v4.0.0</div>
+  </div>
+
+  <!-- ===== Main menu screen ===== -->
+  <div id="menuScreen" class="hidden">
+    <div class="app-header">
+      <img src="icons_final/logo-512.png" alt="Hunting Info" />
+    </div>
+    <div id="menuGrid" class="menu-grid"></div>
+    <button id="optionsButton" class="options-button">••• Options</button>
+    <button id="logoutButton" class="options-button" onclick="logOut()">Log out</button>
+    <div class="version-footer app-version">v4.0.0</div>
+  </div>
+
+  <!-- ===== Options screen ===== -->
+  <div id="optionsScreen" class="hidden options-screen">
+    <button id="optionsBack" class="back-button">&larr; Back</button>
+    <h2>Options</h2>
+
+    <section class="options-section">
+      <h3>Dropbox auto-backup</h3>
+      <p class="options-hint">Every save is backed up automatically once a token is entered here. Get a token from the Dropbox App Console.</p>
+      <input type="text" id="dropboxTokenInput" placeholder="Dropbox API access token" />
+      <button id="saveDropboxToken">Save token</button>
+      <div id="dropboxStatus" class="options-status"></div>
+    </section>
+
+    <section class="options-section">
+      <h3>Export</h3>
+      <p class="options-hint">Export the full dataset, or open a section and use its own export button for just that species/area.</p>
+      <button id="exportEverythingBtn">Export everything (JSON)</button>
+    </section>
+
+    <div class="version-footer app-version">v4.0.0</div>
+  </div>
+
+  <!-- ===== Shared modal overlay (maps, farm picker, etc.) ===== -->
+  <div id="modalOverlay" class="modal-overlay hidden"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="js/version.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/dropbox-backup.js"></script>
+  <script src="js/export.js"></script>
+  <script src="js/leaflet-loader.js"></script>
+  <script src="js/land-farms.js"></script>
+  <script src="js/species-log.js"></script>
+  <script src="js/deer-log.js"></script>
+  <script src="js/zeroing.js"></script>
+  <script src="js/cull-plan-import.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Anyone logged in (admin or viewer) can read everything.
+    // Only the admin account can write. This is the real access control —
+    // the app's UI hides edit buttons for the viewer login too, but this
+    // is what actually stops a viewer account from writing, even if they
+    // called the API directly.
+    match /{document=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+                   && request.auth.token.email == "PASTE_ADMIN_EMAIL_HERE";
+    }
+  }
+}
