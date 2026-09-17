@@ -49,6 +49,26 @@ const SpeciesLog = {
     return window.APP_DATA.species[this.currentSection];
   },
 
+  firearmOptionsHtml(selected) {
+    const opts = Firearms.list()
+      .map((f) => `<option ${f === selected ? "selected" : ""}>${f}</option>`)
+      .join("");
+    return opts + `<option value="__add_new__">+ Add new firearm…</option>`;
+  },
+
+  handleFirearmChange(idx, selectEl) {
+    if (selectEl.value === "__add_new__") {
+      const added = Firearms.addInline();
+      if (added) {
+        this.updateEntry(idx, "firearm", added);
+      } else {
+        this.render(); // reset the dropdown if the user cancelled
+      }
+      return;
+    }
+    this.updateEntry(idx, "firearm", selectEl.value);
+  },
+
   addEntry() {
     const def = SPECIES_SECTIONS[this.currentSection];
     const farms = window.APP_DATA.farms || [];
@@ -60,6 +80,7 @@ const SpeciesLog = {
       what3words: "",
       category: def.categories[0],
       shots: 1,
+      firearm: "",
       photos: [],
       notes: "",
     });
@@ -126,6 +147,10 @@ const SpeciesLog = {
           <button class="tab-btn ${this.currentView === "by-farm" ? "active" : ""}" onclick="SpeciesLog.setView('by-farm')">By Farm</button>
           <button class="tab-btn ${this.currentView === "by-field" ? "active" : ""}" onclick="SpeciesLog.setView('by-field')">By Field Name</button>
           ${w3wEnabled ? `<button class="tab-btn" onclick="alert('Shot-location map opens here once the maps phase is wired up.')">📍 Map</button>` : ""}
+          ${this.currentSection === "fox" ? `<button class="tab-btn" onclick="ReferenceInfo.foxBoarLifecycle('Fox')">Lifecycle</button>` : ""}
+          ${this.currentSection === "boar" ? `<button class="tab-btn" onclick="ReferenceInfo.foxBoarLifecycle('Wild boar')">Lifecycle</button><button class="tab-btn" onclick="ReferenceInfo.boarDisease()">Disease</button>` : ""}
+          ${this.currentSection === "game" ? `<button class="tab-btn" onclick="ReferenceInfo.gameSeasons()">Game Seasons</button>` : ""}
+          ${this.currentSection === "winged" ? `<button class="tab-btn" onclick="ReferenceInfo.generalLicences()">General Licences</button>` : ""}
         </div>
         <div id="speciesLogBody"></div>
       </div>`;
@@ -164,6 +189,10 @@ const SpeciesLog = {
         <input type="text" placeholder="Field / area" value="${e.area || ""}" onchange="SpeciesLog.updateEntry(${idx},'area',this.value)" />
         ${w3wEnabled ? `<input type="text" placeholder="///what3words" value="${e.what3words || ""}" onchange="SpeciesLog.updateEntry(${idx},'what3words',this.value)" />` : ""}
         <input type="number" min="0" value="${e.shots}" onchange="SpeciesLog.updateEntry(${idx},'shots',this.value)" style="width:60px;" />
+        <select onchange="SpeciesLog.handleFirearmChange(${idx}, this)">
+          <option value="" ${!e.firearm ? "selected" : ""}>Firearm…</option>
+          ${this.firearmOptionsHtml(e.firearm)}
+        </select>
         <button class="icon-btn" onclick="SpeciesLog.removeEntry(${idx})">✕</button>
       </div>`
       )

@@ -12,9 +12,11 @@ const MENU_SECTIONS = [
   { key: "boar",     label: "Boar",           icon: "icons_final/boar.png" },
   { key: "clay",     label: "Clay Shooting",  icon: "icons_final/clay.png" },
   { key: "zeroing",  label: "Zeroing",        icon: "icons_final/zero.png" },
+  { key: "firearms", label: "Firearms",       icon: "icons_final/firearms.png" },
 ];
 
 const LAND_AND_FARMS = { key: "land-farms", label: "Land and Farms", icon: "icons_final/farm.png" };
+const TRACKING_TILE = { key: "tracking", label: "Tracking", icon: "icons_final/tracking.png" };
 
 // ---------- Render menu ----------
 function renderMenu() {
@@ -25,10 +27,15 @@ function renderMenu() {
     grid.appendChild(buildTile(section));
   });
 
-  // Land and Farms: always last, full-width row
+  // Land and Farms: always second-to-last, full-width row
   const farmTile = buildTile(LAND_AND_FARMS);
   farmTile.classList.add("land-farms");
   grid.appendChild(farmTile);
+
+  // Tracking: same full-width treatment, sits below Land and Farms
+  const trackingTile = buildTile(TRACKING_TILE);
+  trackingTile.classList.add("land-farms");
+  grid.appendChild(trackingTile);
 }
 
 function buildTile(section) {
@@ -54,6 +61,14 @@ function openSection(key) {
   }
   if (SPECIES_SECTIONS[key]) {
     SpeciesLog.open(key);
+    return;
+  }
+  if (key === "firearms") {
+    Firearms.open();
+    return;
+  }
+  if (key === "tracking") {
+    Tracking.open();
     return;
   }
   if (key === "zeroing") {
@@ -82,8 +97,28 @@ function openLandAndFarms() {
       <div class="farm-list">
         ${farms.map((f) => `<button class="btn secondary" onclick='LandAndFarms.open(${JSON.stringify(f)})'>${f.name}</button>`).join("")}
       </div>
+      <button class="btn small" style="margin-top:12px;" onclick="addFarm()">+ Add farm</button>
     </div>`;
   overlay.classList.remove("hidden");
+}
+
+// Shared across the app — Land and Farms, and every species log's farm
+// dropdown, all read from window.APP_DATA.farms, so a farm added here
+// shows up everywhere immediately.
+function addFarm() {
+  const name = prompt("Farm name:");
+  if (!name) return;
+  const address = prompt("Address (optional):") || "";
+  const postcode = prompt("Postcode (optional):") || "";
+  window.APP_DATA.farms.push({
+    id: "farm-" + Date.now() + "-" + Math.round(Math.random() * 1000),
+    name,
+    address,
+    postcode,
+  });
+  // TODO: Firestore write here, then triggerBackup(window.APP_DATA) for Dropbox.
+  triggerBackup?.(window.APP_DATA);
+  openLandAndFarms();
 }
 
 // ---------- Options menu (•••) ----------
@@ -116,7 +151,7 @@ function handleExportEverything() {
 }
 
 function labelFor(key) {
-  const all = [...MENU_SECTIONS, LAND_AND_FARMS];
+  const all = [...MENU_SECTIONS, LAND_AND_FARMS, TRACKING_TILE];
   return all.find((s) => s.key === key)?.label ?? key;
 }
 

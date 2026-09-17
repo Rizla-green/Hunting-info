@@ -4,7 +4,7 @@
 // in js/version.js. Changing this string is what makes the phone pull
 // fresh files next time it has a connection — without it, the old
 // cached version keeps being served forever.
-const CACHE_VERSION = "hunting-info-v4.0.0";
+const CACHE_VERSION = "hunting-info-v4.1.0";
 
 const CORE_FILES = [
   "./",
@@ -20,8 +20,13 @@ const CORE_FILES = [
   "./js/species-log.js",
   "./js/deer-log.js",
   "./js/zeroing.js",
+  "./js/firearms.js",
   "./js/cull-plan-import.js",
+  "./js/tracking.js",
+  "./js/reference-info.js",
   "./js/app.js",
+  "./icons_final/tracking.png",
+  "./icons_final/firearms.png",
   "./icons_final/deer.png",
   "./icons_final/fox.png",
   "./icons_final/rabbit.png",

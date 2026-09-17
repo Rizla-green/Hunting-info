@@ -379,6 +379,94 @@ body {
 }
 .log-row .icon-btn { background: none; color: var(--red); font-size: 16px; padding: 4px; margin: 0; }
 
+/* ---------- Tracking ---------- */
+.tracking-list { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; max-height: 60vh; overflow-y: auto; }
+.tracking-row {
+  text-align: left;
+  background: var(--navy);
+  border: 1px solid var(--gold-dim);
+  border-radius: 8px;
+  color: var(--cream);
+  padding: 10px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.tracking-row:hover { border-color: var(--gold); }
+.tracking-row-ref { opacity: 0.7; font-style: italic; }
+.tracking-detail h4 {
+  color: var(--gold);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 14px 0 5px;
+}
+.tracking-detail h4:first-child { margin-top: 4px; }
+.tracking-detail p { color: var(--cream); font-size: 12.5px; line-height: 1.5; margin: 0; opacity: 0.92; }
+
+/* ---------- Original v3.9 data-table style, ported to this theme ---------- */
+table.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  margin-top: 6px;
+}
+table.data-table th {
+  background: var(--navy);
+  color: var(--gold) !important;
+  padding: 8px 7px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 11px;
+  position: sticky;
+  top: 0;
+  border-bottom: 1px solid var(--gold-dim);
+  white-space: nowrap;
+}
+table.data-table td {
+  padding: 6px 7px;
+  border-bottom: 1px solid var(--navy);
+  background: var(--navy-light);
+  color: var(--cream);
+}
+table.data-table tr:nth-child(even) td {
+  background: #22392b;
+}
+table.data-table input,
+table.data-table select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 5px 6px;
+  border: 1px solid var(--gold-dim);
+  border-radius: 5px;
+  background: var(--navy);
+  color: var(--cream);
+  font-size: 12px;
+}
+.data-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--gold-dim);
+  border-radius: 8px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+.field-settings-btn {
+  background: none;
+  border: none;
+  color: var(--gold-dim);
+  font-size: 17px;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+.field-settings-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0 4px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--navy);
+}
+.field-settings-row input { width: 16px; height: 16px; }
+
 /* ---------- Zeroing ---------- */
 .zeroing-session {
   border-bottom: 1px solid var(--gold-dim);

@@ -81,6 +81,16 @@ const DeerLog = {
     this.saveAndRender();
   },
 
+  handleFirearmChange(idx, selectEl) {
+    if (selectEl.value === "__add_new__") {
+      const added = Firearms.addInline();
+      if (added) this.updateEntry(idx, "firearm", added);
+      else this.render();
+      return;
+    }
+    this.updateEntry(idx, "firearm", selectEl.value);
+  },
+
   saveAndRender() {
     // TODO: Firestore write, then triggerBackup(window.APP_DATA) for Dropbox.
     triggerBackup?.(window.APP_DATA);
@@ -136,6 +146,10 @@ const DeerLog = {
           <button class="tab-btn ${this.currentView === "by-field" ? "active" : ""}" onclick="DeerLog.setView('by-field')">By Field Name</button>
           <button class="tab-btn" onclick="alert('Shot-location map opens here once the maps phase is wired up.')">📍 Map</button>
           <button class="tab-btn" onclick="CullPlanImport.openImportScreen()">⤓ Import Cull Plan</button>
+          <button class="tab-btn" onclick="ReferenceInfo.seasons()">Seasons</button>
+          <button class="tab-btn" onclick="ReferenceInfo.lymphNodes()">Lymph Nodes</button>
+          <button class="tab-btn" onclick="ReferenceInfo.deerDisease()">Disease</button>
+          <button class="tab-btn" onclick="ReferenceInfo.deerLifecycle()">Lifecycle</button>
         </div>
         <div id="deerLogBody"></div>
       </div>`;
@@ -178,6 +192,11 @@ const DeerLog = {
         <input type="text" placeholder="///what3words" value="${e.what3words || ""}" onchange="DeerLog.updateEntry(${idx},'what3words',this.value)" />
         <select onchange="DeerLog.updateEntry(${idx},'condition',this.value)">
           ${DEER_CONDITIONS.map((c) => `<option ${c === e.condition ? "selected" : ""}>${c}</option>`).join("")}
+        </select>
+        <select onchange="DeerLog.handleFirearmChange(${idx}, this)">
+          <option value="" ${!e.firearm ? "selected" : ""}>Firearm…</option>
+          ${Firearms.list().map((f) => `<option ${f === e.firearm ? "selected" : ""}>${f}</option>`).join("")}
+          <option value="__add_new__">+ Add new firearm…</option>
         </select>
         <button class="icon-btn" onclick="DeerLog.removeEntry(${idx})">✕</button>
       </div>`

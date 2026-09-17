@@ -74,6 +74,7 @@ const LandAndFarms = {
         <div class="land-map-actions">
           <button class="btn" onclick="LandAndFarms.startBoundary()">Draw farm boundary</button>
           <button class="btn ghost" onclick="LandAndFarms.addCustomCategory()">+ Custom category</button>
+          <button class="btn ghost" onclick="LandAndFarms.recenterToMyLocation()">📍 My Location</button>
         </div>
         <p class="hint" id="landMapInfo">Toggle layers below, tap one to start adding a marker for it, or draw the farm boundary.</p>
       </div>`;
@@ -172,6 +173,23 @@ const LandAndFarms = {
       visToggle.onclick = () => this.toggleLayerVisibility(def.key);
       wrap.appendChild(visToggle);
     });
+  },
+
+  // Pans the map to the device's current GPS location — navigation only,
+  // doesn't drop a pin. Available on every map in the app; Zeroing has
+  // its own separate "use my location to place a pin" version.
+  recenterToMyLocation() {
+    if (!navigator.geolocation) {
+      alert("This device doesn't support GPS location.");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        this.map.setView([pos.coords.latitude, pos.coords.longitude], 16);
+      },
+      () => alert("Couldn't get your location — check location permissions and try again."),
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
   },
 
   toggleLayerVisibility(key) {
