@@ -195,12 +195,23 @@ const ClayShooting = {
       </div>
 
       <div class="section-title" style="margin-top:18px;"><h4>Records</h4></div>
+      <button class="icon-btn" onclick="ClayShooting.openFieldSettings()" title="Choose which fields show">⚙</button>
       <div style="margin-top:8px;">${this.renderTable()}</div>
       <button class="btn small" style="margin-top:10px;" onclick="ClayShooting.addEntry()">+ Add entry</button>`;
   },
 
+  fieldDefs: [
+    { key: "firearm", label: "Firearm" },
+    { key: "photos", label: "Photos" },
+    { key: "notes", label: "Notes" },
+  ],
+  openFieldSettings() {
+    openFieldSettings("clay", "Clay Shooting", this.fieldDefs, () => this.render());
+  },
+
   renderTable() {
     const entries = this.scopedEntries();
+    const on = (f) => isFieldOn("clay", f);
     const rows = entries
       .map((e) => {
         const idx = this.entries().indexOf(e);
@@ -213,27 +224,27 @@ const ClayShooting = {
       <div class="log-row-card">
         <div class="log-row">
           <input type="date" value="${e.date}" onchange="ClayShooting.updateEntry(${idx},'date',this.value)" />
-          <select onchange="ClayShooting.handleFirearmChange(${idx}, this)">
+          ${on("firearm") ? `<select onchange="ClayShooting.handleFirearmChange(${idx}, this)">
             <option value="" ${!e.firearm ? "selected" : ""}>Firearm…</option>
             ${Firearms.list().map((f) => `<option ${f === e.firearm ? "selected" : ""}>${f}</option>`).join("")}
             <option value="__add_new__">+ Add new firearm…</option>
-          </select>
+          </select>` : ""}
         </div>
         <div class="log-row">
           <input type="number" min="0" placeholder="Clays" value="${e.clays}" onchange="ClayShooting.updateEntry(${idx},'clays',this.value)" style="width:80px;" />
           <input type="number" min="0" placeholder="Hits" value="${e.hits}" onchange="ClayShooting.updateEntry(${idx},'hits',this.value)" style="width:80px;" />
           <span class="hint" style="margin:0;">${pct}% hit</span>
         </div>
-        <div class="log-row">
+        ${on("notes") ? `<div class="log-row">
           <input type="text" placeholder="Notes" value="${e.notes || ""}" onchange="ClayShooting.updateEntry(${idx},'notes',this.value)" />
-        </div>
-        <div class="log-row photo-row">
+        </div>` : ""}
+        ${on("photos") ? `<div class="log-row photo-row">
           ${photoThumbs}
           <label class="btn small ghost" style="cursor:pointer;">+ Photo
             <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="ClayShooting.addPhoto(${idx}, this)" />
           </label>
           <button class="icon-btn" onclick="ClayShooting.removeEntry(${idx})" style="margin-left:auto;">✕ Remove entry</button>
-        </div>
+        </div>` : `<div class="log-row"><button class="icon-btn" onclick="ClayShooting.removeEntry(${idx})" style="margin-left:auto;">✕ Remove entry</button></div>`}
       </div>`;
       })
       .join("");

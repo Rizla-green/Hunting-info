@@ -619,6 +619,7 @@ const DeerLog = {
         <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="DeerLog.addEntryFromCamera(this)" />
       </label>
       <p class="hint">Every entry is checked against the close season for this property's country automatically.</p>
+      <button class="icon-btn" onclick="DeerLog.openFieldSettings()" title="Choose which fields show">⚙</button>
       <div class="species-tabs">
         <button class="tab-btn ${this.subView === "log" ? "active" : ""}" onclick="DeerLog.setSubView('log')">Entry Log</button>
         <button class="tab-btn ${this.subView === "by-field" ? "active" : ""}" onclick="DeerLog.setSubView('by-field')">By Field Name</button>
@@ -626,8 +627,29 @@ const DeerLog = {
       <div style="margin-top:8px;">${this.subView === "log" ? this.renderFlatLog() : this.renderGroupedByField()}</div>`;
   },
 
+  fieldDefs: [
+    { key: "location", label: "Location" },
+    { key: "what3words", label: "what3words" },
+    { key: "time", label: "Time (nearest hour)" },
+    { key: "weight", label: "Weight (kg)" },
+    { key: "tag", label: "Tag no." },
+    { key: "firearm", label: "Firearm" },
+    { key: "condition", label: "Condition" },
+    { key: "abnormalities", label: "Abnormalities" },
+    { key: "shotPlacement", label: "Shot placement" },
+    { key: "shotBy", label: "Shot by" },
+    { key: "recordedBy", label: "Inspected by" },
+    { key: "destination", label: "Destination" },
+    { key: "photos", label: "Photos" },
+    { key: "notes", label: "Notes" },
+  ],
+  openFieldSettings() {
+    openFieldSettings("deer", "Deer", this.fieldDefs, () => this.render());
+  },
+
   renderFlatLog() {
     const entries = this.scopedEntries();
+    const on = (f) => isFieldOn("deer", f);
     const rows = entries
       .map((e) => {
         const idx = this.entries().indexOf(e);
@@ -652,27 +674,43 @@ const DeerLog = {
         </select>
         </div>
         <div class="log-row">
-        <input type="text" placeholder="Location" value="${e.location || ""}" onchange="DeerLog.updateEntry(${idx},'location',this.value)" />
-        <input type="text" placeholder="///what3words" value="${e.what3words || ""}" onchange="DeerLog.updateEntry(${idx},'what3words',this.value)" />
-        <select onchange="DeerLog.updateEntry(${idx},'condition',this.value)">
-          ${DEER_CONDITIONS.map((c) => `<option ${c === e.condition ? "selected" : ""}>${c}</option>`).join("")}
-        </select>
+        ${on("location") ? `<input type="text" placeholder="Location" value="${e.location || ""}" onchange="DeerLog.updateEntry(${idx},'location',this.value)" />` : ""}
+        ${on("what3words") ? `<input type="text" placeholder="///what3words" value="${e.what3words || ""}" onchange="DeerLog.updateEntry(${idx},'what3words',this.value)" />` : ""}
+        ${on("time") ? `<input type="time" value="${e.time || ""}" onchange="DeerLog.updateEntry(${idx},'time',this.value)" style="width:100px;" />` : ""}
         </div>
         <div class="log-row">
+        ${on("weight") ? `<input type="number" placeholder="Weight (kg)" value="${e.weight || ""}" onchange="DeerLog.updateEntry(${idx},'weight',this.value)" style="width:100px;" />` : ""}
+        ${on("tag") ? `<input type="text" placeholder="Tag no." value="${e.tag || ""}" onchange="DeerLog.updateEntry(${idx},'tag',this.value)" style="width:90px;" />` : ""}
+        ${on("condition") ? `<select onchange="DeerLog.updateEntry(${idx},'condition',this.value)">
+          ${DEER_CONDITIONS.map((c) => `<option ${c === e.condition ? "selected" : ""}>${c}</option>`).join("")}
+        </select>` : ""}
+        </div>
+        ${on("firearm") ? `<div class="log-row">
         <select onchange="DeerLog.handleFirearmChange(${idx}, this)">
           <option value="" ${!e.firearm ? "selected" : ""}>Firearm…</option>
           ${Firearms.list().map((f) => `<option ${f === e.firearm ? "selected" : ""}>${f}</option>`).join("")}
           <option value="__add_new__">+ Add new firearm…</option>
         </select>
-        <input type="text" placeholder="Notes" value="${e.notes || ""}" onchange="DeerLog.updateEntry(${idx},'notes',this.value)" />
+        </div>` : ""}
+        <div class="log-row">
+        ${on("abnormalities") ? `<input type="text" placeholder="Abnormalities" value="${e.abnormalities || ""}" onchange="DeerLog.updateEntry(${idx},'abnormalities',this.value)" />` : ""}
+        ${on("shotPlacement") ? `<input type="text" placeholder="Shot placement" value="${e.shotPlacement || ""}" onchange="DeerLog.updateEntry(${idx},'shotPlacement',this.value)" />` : ""}
         </div>
-        <div class="log-row photo-row">
+        <div class="log-row">
+        ${on("shotBy") ? `<input type="text" placeholder="Shot by" value="${e.shotBy || ""}" onchange="DeerLog.updateEntry(${idx},'shotBy',this.value)" />` : ""}
+        ${on("recordedBy") ? `<input type="text" placeholder="Inspected by" value="${e.recordedBy || ""}" onchange="DeerLog.updateEntry(${idx},'recordedBy',this.value)" />` : ""}
+        </div>
+        <div class="log-row">
+        ${on("destination") ? `<input type="text" placeholder="Destination" value="${e.destination || ""}" onchange="DeerLog.updateEntry(${idx},'destination',this.value)" />` : ""}
+        ${on("notes") ? `<input type="text" placeholder="Notes" value="${e.notes || ""}" onchange="DeerLog.updateEntry(${idx},'notes',this.value)" />` : ""}
+        </div>
+        ${on("photos") ? `<div class="log-row photo-row">
           ${photoThumbs}
           <label class="btn small ghost" style="cursor:pointer;">+ Photo
             <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="DeerLog.addPhoto(${idx}, this)" />
           </label>
           <button class="icon-btn" onclick="DeerLog.removeEntry(${idx})" style="margin-left:auto;">✕ Remove entry</button>
-        </div>
+        </div>` : `<div class="log-row"><button class="icon-btn" onclick="DeerLog.removeEntry(${idx})" style="margin-left:auto;">✕ Remove entry</button></div>`}
       </div>`;
       })
       .join("");

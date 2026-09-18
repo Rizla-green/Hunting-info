@@ -196,6 +196,22 @@ const SpeciesLog = {
     this.saveAndRender();
   },
 
+  fieldDefsFor() {
+    const defs = [
+      { key: "ampm", label: "AM / PM" },
+      { key: "area", label: "Area (within property)" },
+      { key: "firearm", label: "Firearm" },
+      { key: "photos", label: "Photos" },
+      { key: "notes", label: "Notes" },
+    ];
+    if (W3W_SPECIES.includes(this.currentSection)) defs.splice(2, 0, { key: "what3words", label: "what3words" });
+    return defs;
+  },
+  openFieldSettings() {
+    const def = SPECIES_SECTIONS[this.currentSection];
+    openFieldSettings(this.currentSection, def.title, this.fieldDefsFor(), () => this.render());
+  },
+
   firearmOptionsHtml(selected) {
     const opts = Firearms.list().map((f) => `<option ${f === selected ? "selected" : ""}>${f}</option>`).join("");
     return opts + `<option value="__add_new__">+ Add new firearm…</option>`;
@@ -350,6 +366,7 @@ const SpeciesLog = {
       ${this.currentSection === "winged" ? this.renderGeneralLicencesBlock() : ""}
 
       <div class="section-title" style="margin-top:18px;"><h4>Records</h4></div>
+      <button class="icon-btn" onclick="SpeciesLog.openFieldSettings()" title="Choose which fields show">⚙</button>
       <div class="species-tabs">
         <button class="tab-btn ${this.subView === "log" ? "active" : ""}" onclick="SpeciesLog.setSubView('log')">Entry Log</button>
         <button class="tab-btn ${this.subView === "by-field" ? "active" : ""}" onclick="SpeciesLog.setSubView('by-field')">By Field Name</button>
@@ -369,6 +386,7 @@ const SpeciesLog = {
     const entries = this.scopedEntries();
     const categoryOptions = categoryOptionsFor(this.currentSection);
     const w3wEnabled = W3W_SPECIES.includes(this.currentSection);
+    const on = (f) => isFieldOn(this.currentSection, f);
     const rows = entries
       .map((e) => {
         const idx = this.entries().indexOf(e);
@@ -380,33 +398,33 @@ const SpeciesLog = {
       <div class="log-row-card">
         <div class="log-row">
           <input type="date" value="${e.date}" onchange="SpeciesLog.updateEntry(${idx},'date',this.value)" />
-          <select onchange="SpeciesLog.updateEntry(${idx},'ampm',this.value)" style="width:70px;">
+          ${on("ampm") ? `<select onchange="SpeciesLog.updateEntry(${idx},'ampm',this.value)" style="width:70px;">
             <option ${e.ampm === "AM" ? "selected" : ""}>AM</option>
             <option ${e.ampm === "PM" ? "selected" : ""}>PM</option>
-          </select>
+          </select>` : ""}
           <select onchange="SpeciesLog.updateEntry(${idx},'category',this.value)">
             ${categoryOptions.map((c) => `<option ${c === e.category ? "selected" : ""}>${c}</option>`).join("")}
           </select>
         </div>
         <div class="log-row">
-          <input type="text" placeholder="Area (within property)" value="${e.area || ""}" onchange="SpeciesLog.updateEntry(${idx},'area',this.value)" />
-          ${w3wEnabled ? `<input type="text" placeholder="///what3words" value="${e.what3words || ""}" onchange="SpeciesLog.updateEntry(${idx},'what3words',this.value)" />` : ""}
+          ${on("area") ? `<input type="text" placeholder="Area (within property)" value="${e.area || ""}" onchange="SpeciesLog.updateEntry(${idx},'area',this.value)" />` : ""}
+          ${w3wEnabled && on("what3words") ? `<input type="text" placeholder="///what3words" value="${e.what3words || ""}" onchange="SpeciesLog.updateEntry(${idx},'what3words',this.value)" />` : ""}
           <input type="number" min="0" value="${e.shots}" onchange="SpeciesLog.updateEntry(${idx},'shots',this.value)" style="width:60px;" />
         </div>
         <div class="log-row">
-          <select onchange="SpeciesLog.handleFirearmChange(${idx}, this)">
+          ${on("firearm") ? `<select onchange="SpeciesLog.handleFirearmChange(${idx}, this)">
             <option value="" ${!e.firearm ? "selected" : ""}>Firearm…</option>
             ${this.firearmOptionsHtml(e.firearm)}
-          </select>
-          <input type="text" placeholder="Notes" value="${e.notes || ""}" onchange="SpeciesLog.updateEntry(${idx},'notes',this.value)" />
+          </select>` : ""}
+          ${on("notes") ? `<input type="text" placeholder="Notes" value="${e.notes || ""}" onchange="SpeciesLog.updateEntry(${idx},'notes',this.value)" />` : ""}
         </div>
-        <div class="log-row photo-row">
+        ${on("photos") ? `<div class="log-row photo-row">
           ${photoThumbs}
           <label class="btn small ghost" style="cursor:pointer;">+ Photo
             <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="SpeciesLog.addPhoto(${idx}, this)" />
           </label>
           <button class="icon-btn" onclick="SpeciesLog.removeEntry(${idx})" style="margin-left:auto;">✕ Remove entry</button>
-        </div>
+        </div>` : `<div class="log-row"><button class="icon-btn" onclick="SpeciesLog.removeEntry(${idx})" style="margin-left:auto;">✕ Remove entry</button></div>`}
       </div>`;
       })
       .join("");
