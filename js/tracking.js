@@ -178,21 +178,10 @@ const Tracking = {
 
   openSpecies(name) {
     const data = TRACKING_DATA[name];
-    const overlay = document.getElementById("modalOverlay");
     const sections = { ...(data.identity || {}), ...(data.sign || {}) };
     const body = Object.entries(sections)
       .map(([heading, text]) => `<h4>${heading}</h4><p>${text}</p>`)
       .join("");
-
-    overlay.innerHTML = `
-      <div class="modal-box species-modal-box">
-        <div class="map-modal-header">
-          <button class="icon-btn" onclick="Tracking.open()">← Back</button>
-          <h3>${name}</h3>
-          <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">Main Menu</button>
-        </div>
-        <div class="tracking-detail">${body}</div>
-      </div>`;
-    overlay.classList.remove("hidden");
+    Popup.open(`${Popup.header(name)}<div class="tracking-detail" style="padding:0 16px 16px;">${body}</div>`);
   },
 };

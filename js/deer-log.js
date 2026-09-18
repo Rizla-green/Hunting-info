@@ -726,7 +726,7 @@ const DeerLog = {
     const warning = this.checkCompliance(e.farmId, e.species, e.sex, e.date);
     const farms = window.APP_DATA.farms || [];
 
-    let html = Popup.header("Deer Entry", "DeerLog.saveDraft()");
+    let html = Popup.header("Deer Entry");
     html += `<div style="padding:0 16px 16px;">`;
     if (warning) html += `<div class="compliance-warning">⚠ ${warning}</div>`;
     html += `<div class="log-row">
@@ -792,6 +792,7 @@ const DeerLog = {
       </label>
     </div>` : ""}
     <button class="icon-btn" onclick="DeerLog.removeDraft()" style="margin-top:10px;">✕ Remove entry</button>
+    ${Popup.saveFooter("DeerLog.saveDraft()")}
     </div>`;
     return html;
   },

@@ -430,7 +430,7 @@ const SpeciesLog = {
       .map((p, pIdx) => `<span class="photo-thumb-wrap"><img src="${cloudinaryThumb(p, 60)}" class="zeroing-thumb" /><button class="icon-btn photo-remove" onclick="SpeciesLog.removePhoto(${pIdx})">✕</button></span>`)
       .join("");
 
-    let html = Popup.header(`${def.title} Entry`, "SpeciesLog.saveDraft()");
+    let html = Popup.header(`${def.title} Entry`);
     html += `<div style="padding:0 16px 16px;">`;
     html += `<div class="log-row">
       <input type="date" value="${e.date}" onchange="SpeciesLog.updateDraft('date',this.value)" />
@@ -507,6 +507,7 @@ const SpeciesLog = {
       </label>
     </div>`;
     html += `<button class="icon-btn" onclick="SpeciesLog.removeDraft()" style="margin-top:10px;">✕ Remove entry</button>`;
+    html += Popup.saveFooter("SpeciesLog.saveDraft()");
     html += `</div>`;
     return html;
   },

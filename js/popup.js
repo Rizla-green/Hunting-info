@@ -29,20 +29,10 @@ const Popup = {
 
   markDirty() { this.dirty = true; },
 
-  // Back — closes the popup only, returning to whatever's behind it.
+  // Close — single button, replaces the old separate Back/Main Menu split.
   requestClose() {
-    if (this.dirty && !confirm("You have unsaved changes. Discard them and go back?")) return;
+    if (this.dirty && !confirm("You have unsaved changes. Discard them and close?")) return;
     this.close();
-  },
-
-  // Main Menu — closes the popup AND the full-page screen behind it, going straight home.
-  requestCloseToMenu() {
-    if (this.dirty && !confirm("You have unsaved changes. Discard them and go to the main menu?")) return;
-    this.dirty = false;
-    this.onClosed = null;
-    document.getElementById("popupOverlay").classList.add("hidden");
-    document.getElementById("popupCard").innerHTML = "";
-    document.getElementById("modalOverlay").classList.add("hidden");
   },
 
   close() {
@@ -54,26 +44,19 @@ const Popup = {
     if (cb) cb();
   },
 
-  // Standard header for an entry popup — Back/Main Menu with unsaved-change checks, plus a Save button.
-  header(title, onSaveJs) {
+  // Standard header for an entry/reference popup — a single Close button, title, nothing else.
+  header(title) {
     return `
       <div class="map-modal-header">
-        <button class="icon-btn" onclick="Popup.requestClose()">← Back</button>
         <h3>${title}</h3>
-        <button class="icon-btn" onclick="Popup.requestCloseToMenu()">Main Menu</button>
-      </div>
-      ${onSaveJs ? `<div class="log-row" style="justify-content:flex-end; padding: 10px 16px 0;">
-        <button class="btn small" onclick="${onSaveJs}">💾 Save</button>
-      </div>` : ""}`;
-  },
-
-  // Simpler header for read-only reference content (no draft/save involved).
-  refHeader(title) {
-    return `
-      <div class="map-modal-header">
-        <button class="icon-btn" onclick="Popup.close()">← Back</button>
-        <h3>${title}</h3>
-        <button class="icon-btn" onclick="document.getElementById('popupOverlay').classList.add('hidden'); document.getElementById('popupCard').innerHTML=''; document.getElementById('modalOverlay').classList.add('hidden');">Main Menu</button>
+        <button class="icon-btn" onclick="Popup.requestClose()">✕ Close</button>
       </div>`;
   },
+
+  // Footer with the Save action — sits at the BOTTOM of the popup content, styled as a proper full-width button.
+  saveFooter(onSaveJs) {
+    return `<button class="btn popup-save-btn" onclick="${onSaveJs}">💾 Save</button>`;
+  },
+
+  refHeader(title) { return this.header(title); },
 };

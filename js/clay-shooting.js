@@ -1,26 +1,28 @@
 /* =====================================================================
    CLAY SHOOTING — a hit-percentage tracker (clays thrown vs hits), not
    species counts. NOT tied to Land and Farms — grounds are a separate
-   "remembered dropdown" list of names typed here (Ben returns to the
-   same grounds repeatedly), not farm boundaries. No Locations tab, no
-   drilling — Overview stats sit above one flat Records list.
+   "remembered dropdown" list of names typed here, not farm boundaries.
+   Entries collapse to a single summary line; tapping one opens a
+   genuine pop-out popup (working on a draft — nothing saves until
+   Save is tapped) with the full data, same pattern as every other
+   section. Clays and Hits fields are clearly labelled (previously two
+   bare unlabelled "0" boxes).
 ===================================================================== */
 
 const ClayShooting = {
   selectedYear: null,
+  draft: null,
+  draftIdx: null,
 
   entries() {
     window.APP_DATA.clay = window.APP_DATA.clay || [];
     return window.APP_DATA.clay;
   },
 
-  // Remembered grounds — a plain list of names typed before, separate
-  // from Land and Farms. New ones typed via "+ Add new ground…" persist here.
   grounds() {
     window.APP_DATA.clayGrounds = window.APP_DATA.clayGrounds || [];
     return window.APP_DATA.clayGrounds;
   },
-
   addGround(name) {
     const trimmed = (name || "").trim();
     if (!trimmed) return null;
@@ -34,9 +36,9 @@ const ClayShooting = {
     this.render();
   },
 
-  addEntry() {
+  newEntryDefaults() {
     const grounds = this.grounds();
-    this.entries().push({
+    return {
       date: new Date().toISOString().slice(0, 10),
       location: grounds[0] || "",
       firearm: "",
@@ -47,74 +49,92 @@ const ClayShooting = {
       lng: null,
       photos: [],
       notes: "",
-    });
-    this.saveAndRender();
+    };
   },
 
-  removeEntry(idx) {
+  openAddPopup() {
+    this.draft = this.newEntryDefaults();
+    this.draftIdx = null;
+    Popup.open(this.renderPopupBody(), () => this.renderBody());
+  },
+  openEditPopup(idx) {
+    this.draft = { ...this.entries()[idx] };
+    this.draftIdx = idx;
+    Popup.open(this.renderPopupBody(), () => this.renderBody());
+  },
+  updateDraft(field, value) {
+    this.draft[field] = value;
+    Popup.markDirty();
+    Popup.setBody(this.renderPopupBody());
+  },
+  saveDraft() {
+    if (this.draftIdx === null) this.entries().push(this.draft);
+    else this.entries()[this.draftIdx] = this.draft;
+    persistData();
+    Popup.dirty = false;
+    this.draft = null;
+    this.draftIdx = null;
+    Popup.close();
+  },
+  removeDraft() {
+    if (this.draftIdx === null) { Popup.dirty = false; Popup.close(); return; }
     if (!confirm("Remove this entry? This can't be undone.")) return;
-    this.entries().splice(idx, 1);
-    this.saveAndRender();
+    this.entries().splice(this.draftIdx, 1);
+    persistData();
+    Popup.dirty = false;
+    this.draft = null;
+    this.draftIdx = null;
+    Popup.close();
   },
 
-  updateEntry(idx, field, value) {
-    this.entries()[idx][field] = value;
-    this.saveAndRender();
-  },
-
-  handleLocationChange(idx, selectEl) {
+  handleLocationChange(selectEl) {
     if (selectEl.value === "__add_new__") {
       const name = prompt("New ground name:");
       const added = this.addGround(name);
-      if (added) this.updateEntry(idx, "location", added);
-      else this.render();
+      if (added) this.updateDraft("location", added);
+      else Popup.setBody(this.renderPopupBody());
       return;
     }
-    this.updateEntry(idx, "location", selectEl.value);
+    this.updateDraft("location", selectEl.value);
   },
-
-  handleFirearmChange(idx, selectEl) {
+  handleFirearmChange(selectEl) {
     if (selectEl.value === "__add_new__") {
       const added = Firearms.addInline();
-      if (added) this.updateEntry(idx, "firearm", added);
-      else this.render();
+      if (added) this.updateDraft("firearm", added);
+      else Popup.setBody(this.renderPopupBody());
       return;
     }
-    this.updateEntry(idx, "firearm", selectEl.value);
+    this.updateDraft("firearm", selectEl.value);
   },
-
-  captureW3w(idx) {
+  captureW3w() {
     LocationMatch.captureLocation((loc) => {
       if (!loc) return;
-      const entry = this.entries()[idx];
-      entry.what3words = loc.what3words;
-      entry.lat = loc.lat;
-      entry.lng = loc.lng;
-      this.saveAndRender();
+      this.draft.what3words = loc.what3words;
+      this.draft.lat = loc.lat;
+      this.draft.lng = loc.lng;
+      Popup.markDirty();
+      Popup.setBody(this.renderPopupBody());
     });
   },
-
-  addPhoto(idx, inputEl) {
+  addPhoto(inputEl) {
     const file = inputEl.files[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
-      const entry = this.entries()[idx];
-      entry.photos = entry.photos || [];
-      entry.photos.push(reader.result);
-      const photoIdx = entry.photos.length - 1;
-      this.saveAndRender();
-      uploadAndReplace(entry.photos, photoIdx);
+      this.draft.photos = this.draft.photos || [];
+      this.draft.photos.push(reader.result);
+      const photoIdx = this.draft.photos.length - 1;
+      Popup.markDirty();
+      Popup.setBody(this.renderPopupBody());
+      uploadAndReplace(this.draft.photos, photoIdx);
     };
     reader.readAsDataURL(file);
   },
-  removePhoto(idx, photoIdx) {
-    if (!confirm("Remove this photo? This can't be undone.")) return;
-    this.entries()[idx].photos.splice(photoIdx, 1);
-    this.saveAndRender();
+  removePhoto(photoIdx) {
+    this.draft.photos.splice(photoIdx, 1);
+    Popup.markDirty();
+    Popup.setBody(this.renderPopupBody());
   },
-
-  saveAndRender() { persistData(); this.render(); },
 
   setYear(year) { this.selectedYear = year; this.render(); },
 
@@ -141,7 +161,7 @@ const ClayShooting = {
   },
 
   renderBody() {
-    document.getElementById("clayBody").innerHTML = this.renderOverview() + this.renderTable();
+    document.getElementById("clayBody").innerHTML = this.renderOverview() + this.renderList();
   },
 
   renderOverview() {
@@ -166,69 +186,76 @@ const ClayShooting = {
         <div class="stat-card"><div class="num">${season.hits}</div><div class="lbl">Hits this season</div></div>
       </div>
       <div class="section-title" style="margin-top:18px;"><h4>Records</h4></div>
-      <button class="icon-btn" onclick="ClayShooting.openFieldSettings()" title="Choose which fields show">⚙</button>
-      <button class="btn small" style="margin-top:10px;" onclick="ClayShooting.addEntry()">+ Add entry</button>`;
+      <button class="btn small" style="margin-top:10px; display:block; width:100%;" onclick="ClayShooting.openAddPopup()">+ Add entry</button>`;
   },
 
-  fieldDefs: [
-    { key: "firearm", label: "Firearm" },
-    { key: "photos", label: "Photos" },
-    { key: "notes", label: "Notes" },
-  ],
-  openFieldSettings() {
-    openFieldSettings("clay", "Clay Shooting", this.fieldDefs, () => this.render());
-  },
-
-  renderTable() {
-    const entries = this.entries();
-    const grounds = this.grounds();
-    const on = (f) => isFieldOn("clay", f);
-    const rows = entries
+  renderList() {
+    const rows = this.entries()
       .map((e, idx) => {
-        const photos = e.photos || [];
-        const photoThumbs = photos
-          .map((p, pIdx) => `<span class="photo-thumb-wrap"><img src="${cloudinaryThumb(p, 50)}" class="zeroing-thumb" /><button class="icon-btn photo-remove" onclick="ClayShooting.removePhoto(${idx},${pIdx})">✕</button></span>`)
-          .join("");
         const pct = (parseInt(e.clays, 10) || 0) > 0 ? Math.round(((parseInt(e.hits, 10) || 0) / parseInt(e.clays, 10)) * 100) : 0;
         return `
-      <div class="log-row-card">
-        <div class="log-row">
-          <input type="date" value="${e.date}" onchange="ClayShooting.updateEntry(${idx},'date',this.value)" />
-          <select onchange="ClayShooting.handleLocationChange(${idx}, this)">
-            <option value="" ${!e.location ? "selected" : ""}>Ground…</option>
-            ${grounds.map((g) => `<option ${g === e.location ? "selected" : ""}>${g}</option>`).join("")}
-            <option value="__add_new__">+ Add new ground…</option>
-          </select>
+      <div class="log-row-card compact-row" onclick="ClayShooting.openEditPopup(${idx})" style="cursor:pointer;">
+        <div class="log-row compact-summary">
+          <span>${e.date}</span>
+          <span>${e.location || ""}</span>
+          <span>${e.clays || 0} clays, ${e.hits || 0} hits (${pct}%)</span>
         </div>
-        <div class="log-row">
-          <input type="number" min="0" placeholder="Clays" value="${e.clays}" onchange="ClayShooting.updateEntry(${idx},'clays',this.value)" style="width:80px;" />
-          <input type="number" min="0" placeholder="Hits" value="${e.hits}" onchange="ClayShooting.updateEntry(${idx},'hits',this.value)" style="width:80px;" />
-          <span class="hint" style="margin:0;">${pct}% hit</span>
-        </div>
-        <div class="log-row">
-          <input type="text" placeholder="///what3words" value="${e.what3words || ""}" onchange="ClayShooting.updateEntry(${idx},'what3words',this.value)" />
-          <button class="btn small ghost" onclick="ClayShooting.captureW3w(${idx})">📍 Auto</button>
-        </div>
-        ${on("firearm") ? `<div class="log-row">
-          <select onchange="ClayShooting.handleFirearmChange(${idx}, this)">
-            <option value="" ${!e.firearm ? "selected" : ""}>Firearm…</option>
-            ${Firearms.list().map((f) => `<option ${f === e.firearm ? "selected" : ""}>${f}</option>`).join("")}
-            <option value="__add_new__">+ Add new firearm…</option>
-          </select>
-        </div>` : ""}
-        ${on("notes") ? `<div class="log-row">
-          <input type="text" placeholder="Notes" value="${e.notes || ""}" onchange="ClayShooting.updateEntry(${idx},'notes',this.value)" />
-        </div>` : ""}
-        ${on("photos") ? `<div class="log-row photo-row">
-          ${photoThumbs}
-          <label class="btn small ghost" style="cursor:pointer;">+ Photo
-            <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="ClayShooting.addPhoto(${idx}, this)" />
-          </label>
-          <button class="icon-btn" onclick="ClayShooting.removeEntry(${idx})" style="margin-left:auto;">✕ Remove entry</button>
-        </div>` : `<div class="log-row"><button class="icon-btn" onclick="ClayShooting.removeEntry(${idx})" style="margin-left:auto;">✕ Remove entry</button></div>`}
       </div>`;
       })
       .join("");
     return `<div style="margin-top:8px;">${rows || '<p class="hint">No entries yet — tap "+ Add entry" above to log a round.</p>'}</div>`;
+  },
+
+  // ---------- The popup editor (draft) ----------
+  renderPopupBody() {
+    const e = this.draft;
+    const grounds = this.grounds();
+    const photos = e.photos || [];
+    const photoThumbs = photos
+      .map((p, pIdx) => `<span class="photo-thumb-wrap"><img src="${cloudinaryThumb(p, 50)}" class="zeroing-thumb" /><button class="icon-btn photo-remove" onclick="ClayShooting.removePhoto(${pIdx})">✕</button></span>`)
+      .join("");
+    const pct = (parseInt(e.clays, 10) || 0) > 0 ? Math.round(((parseInt(e.hits, 10) || 0) / parseInt(e.clays, 10)) * 100) : 0;
+
+    let html = Popup.header("Clay Shooting Entry");
+    html += `<div style="padding:0 16px 16px;">`;
+    html += `<div class="log-row">
+      <input type="date" value="${e.date}" onchange="ClayShooting.updateDraft('date',this.value)" />
+      <select onchange="ClayShooting.handleLocationChange(this)">
+        <option value="" ${!e.location ? "selected" : ""}>Ground…</option>
+        ${grounds.map((g) => `<option ${g === e.location ? "selected" : ""}>${g}</option>`).join("")}
+        <option value="__add_new__">+ Add new ground…</option>
+      </select>
+    </div>
+    <div class="log-row">
+      <label style="flex:1;"><span class="hint" style="display:block; margin:0 0 2px;">Clays</span>
+        <input type="number" min="0" placeholder="Clays" value="${e.clays}" onchange="ClayShooting.updateDraft('clays',this.value)" />
+      </label>
+      <label style="flex:1;"><span class="hint" style="display:block; margin:0 0 2px;">Hits</span>
+        <input type="number" min="0" placeholder="Hits" value="${e.hits}" onchange="ClayShooting.updateDraft('hits',this.value)" />
+      </label>
+    </div>
+    <div class="log-row"><span class="hint" style="margin:0;">${pct}% hit</span></div>
+    <div class="log-row">
+      <input type="text" placeholder="///what3words" value="${e.what3words || ""}" onchange="ClayShooting.updateDraft('what3words',this.value)" />
+      <button class="btn small ghost" onclick="ClayShooting.captureW3w()">📍 Auto</button>
+    </div>
+    <div class="log-row">
+      <select onchange="ClayShooting.handleFirearmChange(this)">
+        <option value="" ${!e.firearm ? "selected" : ""}>Firearm…</option>
+        ${Firearms.list().map((f) => `<option ${f === e.firearm ? "selected" : ""}>${f}</option>`).join("")}
+        <option value="__add_new__">+ Add new firearm…</option>
+      </select>
+    </div>
+    <div class="log-row"><input type="text" placeholder="Notes" value="${e.notes || ""}" onchange="ClayShooting.updateDraft('notes',this.value)" /></div>
+    <div class="log-row photo-row">
+      ${photoThumbs}
+      <label class="btn small ghost" style="cursor:pointer;">+ Photo
+        <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="ClayShooting.addPhoto(this)" />
+      </label>
+    </div>
+    <button class="icon-btn" onclick="ClayShooting.removeDraft()" style="margin-top:10px;">✕ Remove entry</button>
+    ${Popup.saveFooter("ClayShooting.saveDraft()")}
+    </div>`;
+    return html;
   },
 };

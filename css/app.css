@@ -285,6 +285,19 @@ body {
   .popup-card { border-radius: 16px; max-height: 80vh; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
 }
 .popup-card .map-modal-header { border-radius: inherit inherit 0 0; }
+.popup-save-btn {
+  display: block;
+  width: calc(100% - 32px);
+  margin: 18px 16px 4px;
+  padding: 14px;
+  font-size: 16px;
+  font-weight: 700;
+  background: var(--gold);
+  color: var(--navy);
+  border: none;
+  border-radius: 10px;
+}
+.popup-save-btn:active { transform: scale(0.98); }
 
 /* ---------- Full-page section screens (was a popup overlay — now a
    real page, matching v3.9: each section replaces the visible screen,
