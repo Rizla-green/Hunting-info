@@ -166,8 +166,9 @@ const Tracking = {
     overlay.innerHTML = `
       <div class="modal-box species-modal-box">
         <div class="map-modal-header">
+          <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">← Back</button>
           <h3>Tracking Guide</h3>
-          <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">✕</button>
+          <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">Main Menu</button>
         </div>
         <p class="hint">Footprints, scat, and sex/age tells for game species, plus common non-quarry species for comparison.</p>
         <div class="tracking-list">${rows}</div>
@@ -186,8 +187,9 @@ const Tracking = {
     overlay.innerHTML = `
       <div class="modal-box species-modal-box">
         <div class="map-modal-header">
+          <button class="icon-btn" onclick="Tracking.open()">← Back</button>
           <h3>${name}</h3>
-          <button class="icon-btn" onclick="Tracking.open()">✕</button>
+          <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">Main Menu</button>
         </div>
         <div class="tracking-detail">${body}</div>
       </div>`;

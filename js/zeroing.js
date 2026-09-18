@@ -14,7 +14,12 @@ const Zeroing = {
   notesPopupIdx: null,
 
   sessions() {
-    window.APP_DATA.zeroing = window.APP_DATA.zeroing || [];
+    // Old builds stored zeroing grouped by caliber as an OBJECT
+    // ({ "243": [...] }); the new flat structure is an ARRAY. If a
+    // stale object is still sitting in saved data (even an empty {}
+    // from just having opened the old screen once), reset it rather
+    // than trust it — this was the cause of Zeroing silently failing.
+    if (!Array.isArray(window.APP_DATA.zeroing)) window.APP_DATA.zeroing = [];
     return window.APP_DATA.zeroing;
   },
 

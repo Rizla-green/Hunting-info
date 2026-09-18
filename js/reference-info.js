@@ -67,14 +67,14 @@ const BOAR_DISEASES = [
 ];
 
 // ---------- Lifecycle charts ----------
-const DEER_LIFECYCLE = [
-  ["Red deer", "March – May", "Late Sept – Nov", "Late May – June"],
-  ["Fallow deer", "April – May", "October", "June – July"],
-  ["Roe deer", "Nov – Dec", "Mid-July – Late Aug", "Mid-May – June"],
-  ["Sika deer", "March – May", "Sept – Nov", "June – July"],
-  ["Muntjac", "May – June", "All year round", "All year round"],
-  ["Chinese water deer", "N/A (no antlers)", "Nov – Dec", "May – June"],
-];
+const DEER_LIFECYCLE_IMAGES = {
+  "Red deer": "icons_final/lifecycle/Red.png",
+  "Fallow deer": "icons_final/lifecycle/Fallow.png",
+  "Roe deer": "icons_final/lifecycle/Roe.png",
+  "Sika deer": "icons_final/lifecycle/Sika.png",
+  "Muntjac": "icons_final/lifecycle/Muntjac.png",
+  "Chinese water deer": "icons_final/lifecycle/CWD.png",
+};
 const FOX_BOAR_LIFECYCLE = [
   ["Fox", "April – Aug (moult; new winter coat by Dec)", "Dec – Feb (peak January)", "March – April (peak mid-March)"],
   ["Wild boar", "N/A (tusks grow continuously, no shedding)", "Oct – Jan (peak Oct – Nov)", "Feb – May (farrowing)"],
@@ -117,8 +117,9 @@ const ReferenceInfo = {
     overlay.innerHTML = `
       <div class="modal-box species-modal-box">
         <div class="map-modal-header">
+          <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">← Back</button>
           <h3>${title}</h3>
-          <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">✕</button>
+          <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">Main Menu</button>
         </div>
         <div class="tracking-detail">${bodyHtml}</div>
       </div>`;
@@ -164,8 +165,17 @@ const ReferenceInfo = {
   },
 
   deerLifecycle() {
+    // Chinese water deer's DEER_LIFECYCLE row is labelled "Chinese water
+    // deer" but its lifecycle image is filed as CWD — same animal.
+    const IMAGE_FOR = {
+      "Red deer": "Red", "Fallow deer": "Fallow", "Roe deer": "Roe",
+      "Sika deer": "Sika", "Muntjac": "Muntjac", "Chinese water deer": "CWD",
+    };
     let html = `<p class="hint" style="margin-top:0;">General UK guidance — timings can vary a little by region and year.</p>`;
-    DEER_LIFECYCLE.forEach((r) => { html += `<h4>${r[0]}</h4><p>Antler casting: ${r[1]}<br>Rut: ${r[2]}<br>Birthing: ${r[3]}</p>`; });
+    DEER_LIFECYCLE.forEach((r) => {
+      const img = IMAGE_FOR[r[0]];
+      html += `<h4>${r[0]}</h4><img src="icons_final/lifecycle/${img}.png" alt="${r[0]} lifecycle chart" style="width:100%; max-width:500px; display:block; margin:0 auto 20px;" />`;
+    });
     this.showModal("Deer Lifecycle Chart", html);
   },
 

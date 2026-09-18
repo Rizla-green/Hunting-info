@@ -1,30 +1,20 @@
 /* =====================================================================
-   SPECIES LOG — all 8 pest/game sections (Fox, Rabbit, Rats, Squirrel,
-   Winged Vermin, Game Shooting, Goats, Boar) share ONE identical
-   structure in v3.9 — confirmed from source, no section is actually
-   different in shape:
+   SPECIES LOG — Fox, Rabbit, Rats, Squirrel, Winged Vermin, Goats,
+   Boar (Game Shooting and Deer are their own separate modules now).
 
-     - Reference buttons (Lifecycle/Disease/Game Seasons) sit ABOVE the
-       Overview/Locations tabs, visible regardless of which tab is open.
-     - Overview: all-time stat -> hint -> year tabs -> year total stat
-       -> category table. No adding entries here.
-     - Locations: a plain farm list, "+ Add location".
-     - Drilling into a farm is ONE continuous page (not more tabs):
-       all-time stat+map button -> year tabs -> year stat+map button ->
-       category table -> "Records" section (gear icon placeholder) ->
-       the actual entry log table -> "+ Add entry".
-     - Fields per entry: Date, AM/PM, Category, Area, what3words
-       (fox/boar/goat/squirrel only), Firearm, Shots, multiple Photos,
-       Notes.
+   Two entry shapes:
+     - COMPACT_ROW_SECTIONS (Fox, Boar, Squirrel, Goats): one entry
+       per animal.
+     - FLAT_SECTIONS (Rabbit, Rats, Winged Vermin): no Locations/farm-
+       drilling — one flat "outing" list; entries can cover multiple
+       animals (Amount) and, for Winged Vermin, different species.
 
-   Game Shooting's category table only ever shows its OWN 11 game birds
-   (ownCategoriesFor) — the combined list (+ Winged Vermin + labelled
-   Squirrel/Fox) is only offered in the add-entry dropdown, and any
-   entry logged under a "borrowed" category rolls up into THAT
-   species' own totals instead of Game Shooting's.
-
-   Winged Vermin's Overview also embeds the General Licences chart and
-   tiles directly (not a separate popup).
+   Every entry — either shape — now opens in a genuine POPUP to add or
+   edit (never inline on the page). Saved entries collapse to a single
+   summary line; tapping it reopens the popup. Every entry also carries
+   Firearm (from the shared Firearms list), Notes (free text), an
+   auto-filled Weather line (once a location is set) and a computed
+   Moon phase for that night — across BOTH shapes.
 ===================================================================== */
 
 const GAME_BIRD_LIST = ["Pheasant", "Mallard", "Wigeon", "French partridge", "English partridge", "Canada goose", "Greylag goose", "Pinkfoot goose", "Egyptian goose", "Snipe", "Woodcock", "Teal"];
@@ -48,7 +38,7 @@ function categoryOptionsFor(sectionKey) {
 
 const W3W_SPECIES = ["deer", "fox", "goats", "boar", "squirrel"];
 
-const COMPACT_ROW_SECTIONS = ["fox", "boar", "squirrel", "goats"];
+const COMPACT_ROW_SECTIONS = ["fox", "boar", "squirrel", "goats"]; // one entry per animal
 const FLAT_SECTIONS = ["rabbit", "rats", "winged"]; // no Locations/farm-drilling — one flat outing list
 
 const SpeciesLog = {
@@ -57,13 +47,7 @@ const SpeciesLog = {
   currentFarmId: null,
   selectedYear: null,
   subView: "log",
-  expanded: {},   // { "sectionKey:idx": true } — collapsed-row expand state, compact sections only
-
-  toggleExpand(idx) {
-    const key = `${this.currentSection}:${idx}`;
-    this.expanded[key] = !this.expanded[key];
-    this.renderBody();
-  },
+  popupIdx: null,   // index of the entry currently open in the popup editor, or null
 
   open(sectionKey) {
     this.currentSection = sectionKey;
@@ -71,6 +55,7 @@ const SpeciesLog = {
     this.currentFarmId = null;
     this.selectedYear = currentSeasonLabel(sectionKey);
     this.subView = "log";
+    this.popupIdx = null;
     this.render();
   },
 
@@ -102,6 +87,7 @@ const SpeciesLog = {
       what3words: "",
       lat: null,
       lng: null,
+      weather: "",
       category: def.categories[0],
       shots: 1,
       firearm: "",
@@ -110,13 +96,24 @@ const SpeciesLog = {
     };
   },
 
+  // ---------- Add (compact: one animal; flat: one outing entry) — both open the popup immediately ----------
   addEntry() {
     this.entries().push(this.newEntryDefaults());
-    this.saveAndRender();
+    this.popupIdx = this.entries().length - 1;
+    persistData();
+    this.render();
+  },
+  addFlatEntry() {
+    const entry = this.newEntryDefaults();
+    entry.farmId = "other";
+    this.entries().push(entry);
+    this.popupIdx = this.entries().length - 1;
+    persistData();
+    this.render();
   },
 
   addEntryFromCamera(inputEl) {
-    LocationMatch.captureWithCamera(inputEl, (photoDataUrl, loc) => {
+    LocationMatch.captureWithCamera(inputEl, async (photoDataUrl, loc) => {
       const entry = this.newEntryDefaults();
       if (loc) {
         entry.what3words = loc.what3words;
@@ -126,31 +123,39 @@ const SpeciesLog = {
       }
       entry.photos = [photoDataUrl];
       this.entries().push(entry);
+      const idx = this.entries().length - 1;
       this.saveAndRender();
       uploadAndReplace(entry.photos, 0);
+      if (loc) {
+        entry.weather = await fetchWeatherForEntry(loc.lat, loc.lng, entry.date);
+        this.saveAndRender();
+      }
     });
   },
 
   captureW3w(idx) {
-    LocationMatch.captureLocation((loc) => {
+    LocationMatch.captureLocation(async (loc) => {
       if (!loc) return;
       const entry = this.entries()[idx];
       entry.what3words = loc.what3words;
       entry.lat = loc.lat;
       entry.lng = loc.lng;
-      this.saveAndRender();
+      this.saveAndRenderPopup(idx);
+      entry.weather = await fetchWeatherForEntry(loc.lat, loc.lng, entry.date);
+      this.saveAndRenderPopup(idx);
     });
   },
 
   removeEntry(idx) {
     if (!confirm("Remove this entry? This can't be undone.")) return;
     this.entries().splice(idx, 1);
+    this.popupIdx = null;
     this.saveAndRender();
   },
 
   updateEntry(idx, field, value) {
     this.entries()[idx][field] = value;
-    this.saveAndRender();
+    this.saveAndRenderPopup(idx);
   },
 
   addPhoto(idx, inputEl) {
@@ -162,7 +167,7 @@ const SpeciesLog = {
       entry.photos = entry.photos || [];
       entry.photos.push(reader.result);
       const photoIdx = entry.photos.length - 1;
-      this.saveAndRender();
+      this.saveAndRenderPopup(idx);
       uploadAndReplace(entry.photos, photoIdx);
     };
     reader.readAsDataURL(file);
@@ -170,23 +175,7 @@ const SpeciesLog = {
   removePhoto(idx, photoIdx) {
     if (!confirm("Remove this photo? This can't be undone.")) return;
     this.entries()[idx].photos.splice(photoIdx, 1);
-    this.saveAndRender();
-  },
-
-  fieldDefsFor() {
-    const defs = [
-      { key: "ampm", label: "AM / PM" },
-      { key: "area", label: "Area (within property)" },
-      { key: "firearm", label: "Firearm" },
-      { key: "photos", label: "Photos" },
-      { key: "notes", label: "Notes" },
-    ];
-    if (W3W_SPECIES.includes(this.currentSection)) defs.splice(2, 0, { key: "what3words", label: "what3words" });
-    return defs;
-  },
-  openFieldSettings() {
-    const def = SPECIES_SECTIONS[this.currentSection];
-    openFieldSettings(this.currentSection, def.title, this.fieldDefsFor(), () => this.render());
+    this.saveAndRenderPopup(idx);
   },
 
   firearmOptionsHtml(selected) {
@@ -197,13 +186,18 @@ const SpeciesLog = {
     if (selectEl.value === "__add_new__") {
       const added = Firearms.addInline();
       if (added) this.updateEntry(idx, "firearm", added);
-      else this.render();
+      else this.saveAndRenderPopup(idx);
       return;
     }
     this.updateEntry(idx, "firearm", selectEl.value);
   },
+  handleFarmChange(idx, selectEl) {
+    if (selectEl.value === "__add_new__") { return; }
+    this.updateEntry(idx, "farmId", selectEl.value);
+  },
 
   saveAndRender() { persistData(); this.render(); },
+  saveAndRenderPopup(idx) { persistData(); this.popupIdx = idx; this.render(); },
 
   setTopTab(tab) { this.topTab = tab; this.render(); },
   setYear(year) { this.selectedYear = year; this.render(); },
@@ -219,6 +213,9 @@ const SpeciesLog = {
     this.topTab = "overview";
     this.render();
   },
+
+  openEntryPopup(idx) { this.popupIdx = idx; this.render(); },
+  closeEntryPopup() { this.popupIdx = null; this.render(); },
 
   groupByField() {
     const groups = {};
@@ -236,6 +233,13 @@ const SpeciesLog = {
     const overlay = document.getElementById("modalOverlay");
     const inFarm = !!this.currentFarmId;
 
+    if (this.popupIdx !== null && this.entries()[this.popupIdx]) {
+      overlay.innerHTML = `<div class="modal-box species-modal-box"><div id="speciesLogBody"></div></div>`;
+      overlay.classList.remove("hidden");
+      document.getElementById("speciesLogBody").innerHTML = this.renderEntryPopup(this.popupIdx);
+      return;
+    }
+
     overlay.innerHTML = `
       <div class="modal-box species-modal-box">
         <div class="map-modal-header">
@@ -246,6 +250,7 @@ const SpeciesLog = {
         <div class="species-tabs">
           ${this.currentSection === "fox" ? `<button class="tab-btn" onclick="ReferenceInfo.foxBoarLifecycle('Fox')">🦊 Lifecycle chart</button>` : ""}
           ${this.currentSection === "boar" ? `<button class="tab-btn" onclick="ReferenceInfo.foxBoarLifecycle('Wild boar')">🐗 Lifecycle chart</button><button class="tab-btn" onclick="ReferenceInfo.boarDisease()">🦠 Boar Disease</button>` : ""}
+          ${this.currentSection === "winged" ? `<button class="tab-btn" onclick="ReferenceInfo.generalLicences()">📜 General Licences</button>` : ""}
         </div>
         ${!inFarm && !FLAT_SECTIONS.includes(this.currentSection) ? `<div class="species-tabs">
           <button class="tab-btn ${this.topTab === "overview" ? "active" : ""}" onclick="SpeciesLog.setTopTab('overview')">Overview</button>
@@ -269,15 +274,14 @@ const SpeciesLog = {
       `<button class="btn small" style="margin-top:10px;" onclick="addFarm()">+ Add location</button>`;
   },
 
-  // ---------- Category totals (own tally, with Game Shooting's
-  // borrowed-category routing folded in for fox/squirrel/winged) ----------
+  // ---------- Category totals ----------
   categoryTotalsFor(entries, year) {
     const def = SPECIES_SECTIONS[this.currentSection];
     const yearEntries = entries.filter((e) => seasonLabelFor(e.date, this.currentSection) === year);
     const totals = {};
     def.categories.forEach((c) => { totals[c] = 0; });
     yearEntries.forEach((e) => {
-      if (totals[e.category] === undefined) return; // borrowed-into-game categories never show on game's own table
+      if (totals[e.category] === undefined) return;
       totals[e.category] += parseInt(e.shots, 10) || 1;
     });
     return totals;
@@ -299,27 +303,8 @@ const SpeciesLog = {
       ${renderStatCards([{ value: grandTotal, label: "Total — season " + this.selectedYear }])}
       <div style="margin-top:10px;">${renderCategoryTable(totals, grandTotal)}</div>`;
 
-    if (this.currentSection === "winged") html += this.renderGeneralLicencesBlock();
     if (!this.currentFarmId && !FLAT_SECTIONS.includes(this.currentSection)) html += `<p class="hint">Open a location under Locations to add or view entries.</p>`;
     return html;
-  },
-
-  renderGeneralLicencesBlock() {
-    const rows = GL_SPECIES_CHART
-      .map((r) => `<tr><td>${r[0]}</td><td>${r[1] ? "✓" : "—"}</td><td>${r[2] ? "✓" : "—"}</td><td>${r[3] ? "✓" : "—"}</td></tr>`)
-      .join("");
-    return `
-      <div class="section-title" style="margin-top:18px;"><h4>General Licences (England)</h4></div>
-      <p class="hint" style="margin-top:0;">Wild birds are protected by law, so control of any species relies on one of these general licences applying. Always check the current official version before relying on it.</p>
-      <div class="table-scroll"><table class="data-table"><tr><th>Species</th><th>GL40</th><th>GL41</th><th>GL42</th></tr>${rows}</table></div>
-      <p class="hint">A tick means the species is a permitted target under that licence for at least one purpose. Source: Natural England's GL40/GL41/GL42 species tables (gov.uk).</p>
-      <p class="hint">Tap a licence for a plain-English summary and a link to the full official conditions.</p>
-      <div class="species-tabs">
-        <button class="tab-btn" onclick="ReferenceInfo.generalLicences()">GL40 — Conservation</button>
-        <button class="tab-btn" onclick="ReferenceInfo.generalLicences()">GL41 — Public health</button>
-        <button class="tab-btn" onclick="ReferenceInfo.generalLicences()">GL42 — Preventing damage</button>
-        <button class="tab-btn" onclick="ReferenceInfo.generalLicences()">GL33 — Trapping conditions</button>
-      </div>`;
   },
 
   // ---------- Farm page: ONE continuous page (stats -> table -> Records) ----------
@@ -340,10 +325,8 @@ const SpeciesLog = {
       ${renderStatCards([{ value: grandTotal, label: "Total — season " + this.selectedYear }])}
       ${mapBtn}
       <div style="margin-top:10px;">${renderCategoryTable(totals, grandTotal)}</div>
-      ${this.currentSection === "winged" ? this.renderGeneralLicencesBlock() : ""}
 
       <div class="section-title" style="margin-top:18px;"><h4>Records</h4></div>
-      <button class="icon-btn" onclick="SpeciesLog.openFieldSettings()" title="Choose which fields show">⚙</button>
       <div class="species-tabs">
         <button class="tab-btn ${this.subView === "log" ? "active" : ""}" onclick="SpeciesLog.setSubView('log')">Entry Log</button>
         <button class="tab-btn ${this.subView === "by-field" ? "active" : ""}" onclick="SpeciesLog.setSubView('by-field')">By Field Name</button>
@@ -357,112 +340,37 @@ const SpeciesLog = {
       </label>` : ""}`;
   },
 
-  // v3.9's exact field set: Date, AM/PM, Category, Area, what3words
-  // (fox/boar/goat/squirrel only), Firearm, Shots, multiple Photos, Notes.
+  // ---------- Compact-section summary rows (one entry per animal) ----------
   renderEntryLog() {
     const entries = this.scopedEntries();
-    const categoryOptions = categoryOptionsFor(this.currentSection);
-    const w3wEnabled = W3W_SPECIES.includes(this.currentSection);
-    const on = (f) => isFieldOn(this.currentSection, f);
-    const isCompact = COMPACT_ROW_SECTIONS.includes(this.currentSection);
     const rows = entries
       .map((e) => {
         const idx = this.entries().indexOf(e);
-        const photos = e.photos || [];
-        const photoThumbs = photos
-          .map((p, pIdx) => `<span class="photo-thumb-wrap"><img src="${cloudinaryThumb(p, 60)}" class="zeroing-thumb" /><button class="icon-btn photo-remove" onclick="SpeciesLog.removePhoto(${idx},${pIdx})">✕</button></span>`)
-          .join("");
-
-        const isExpanded = !isCompact || this.expanded[`${this.currentSection}:${idx}`];
-
-        if (isCompact && !isExpanded) {
-          return `
-      <div class="log-row-card compact-row" onclick="SpeciesLog.toggleExpand(${idx})" style="cursor:pointer;">
+        return `
+      <div class="log-row-card compact-row" onclick="SpeciesLog.openEntryPopup(${idx})" style="cursor:pointer;">
         <div class="log-row compact-summary">
           <span>${e.date}</span>
           <span>${e.category}</span>
           <span>${e.area || ""}</span>
         </div>
       </div>`;
-        }
-
-        return `
-      <div class="log-row-card">
-        ${isCompact ? `<div class="log-row" style="justify-content:flex-end;"><button class="icon-btn" onclick="SpeciesLog.toggleExpand(${idx})">▲ Collapse</button></div>` : ""}
-        <div class="log-row">
-          <input type="date" value="${e.date}" onchange="SpeciesLog.updateEntry(${idx},'date',this.value)" />
-          ${on("ampm") ? `<select onchange="SpeciesLog.updateEntry(${idx},'ampm',this.value)" style="width:70px;">
-            <option ${e.ampm === "AM" ? "selected" : ""}>AM</option>
-            <option ${e.ampm === "PM" ? "selected" : ""}>PM</option>
-          </select>` : ""}
-          <select onchange="SpeciesLog.updateEntry(${idx},'category',this.value)">
-            ${categoryOptions.map((c) => `<option ${c === e.category ? "selected" : ""}>${c}</option>`).join("")}
-          </select>
-        </div>
-        <div class="log-row">
-          ${on("area") ? `<input type="text" placeholder="Area (within property)" value="${e.area || ""}" onchange="SpeciesLog.updateEntry(${idx},'area',this.value)" />` : ""}
-          ${w3wEnabled && on("what3words") ? `<input type="text" placeholder="///what3words" value="${e.what3words || ""}" onchange="SpeciesLog.updateEntry(${idx},'what3words',this.value)" />` : ""}
-          <input type="number" min="0" value="${e.shots}" onchange="SpeciesLog.updateEntry(${idx},'shots',this.value)" style="width:60px;" />
-        </div>
-        <div class="log-row">
-          ${on("firearm") ? `<select onchange="SpeciesLog.handleFirearmChange(${idx}, this)">
-            <option value="" ${!e.firearm ? "selected" : ""}>Firearm…</option>
-            ${this.firearmOptionsHtml(e.firearm)}
-          </select>` : ""}
-          ${on("notes") ? `<input type="text" placeholder="Notes" value="${e.notes || ""}" onchange="SpeciesLog.updateEntry(${idx},'notes',this.value)" />` : ""}
-        </div>
-        ${on("photos") ? `<div class="log-row photo-row">
-          ${photoThumbs}
-          <label class="btn small ghost" style="cursor:pointer;">+ Photo
-            <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="SpeciesLog.addPhoto(${idx}, this)" />
-          </label>
-          <button class="icon-btn" onclick="SpeciesLog.removeEntry(${idx})" style="margin-left:auto;">✕ Remove entry</button>
-        </div>` : `<div class="log-row"><button class="icon-btn" onclick="SpeciesLog.removeEntry(${idx})" style="margin-left:auto;">✕ Remove entry</button></div>`}
-      </div>`;
       })
       .join("");
     return rows || '<p class="hint">No entries yet — tap "+ Add entry" below to log one.</p>';
   },
 
-  // ---------- Flat outing log (Rabbit, Rats, Winged Vermin — no Locations) ----------
+  // ---------- Flat outing summary rows (Rabbit, Rats, Winged Vermin) ----------
   renderFlatPestLog() {
-    const farms = window.APP_DATA.farms || [];
-    const on = (f) => isFieldOn(this.currentSection, f);
-    const showCategoryPicker = this.currentSection === "winged"; // only Winged Vermin picks a species first
     const rows = this.entries()
       .map((e, idx) => {
-        const photos = e.photos || [];
-        const photoThumbs = photos
-          .map((p, pIdx) => `<span class="photo-thumb-wrap"><img src="${cloudinaryThumb(p, 60)}" class="zeroing-thumb" /><button class="icon-btn photo-remove" onclick="SpeciesLog.removePhoto(${idx},${pIdx})">✕</button></span>`)
-          .join("");
+        const locationLabel = (!e.farmId || e.farmId === "other") ? (e.locationText || "") : this.farmName(e.farmId);
+        const secondLabel = this.currentSection === "winged" ? `${e.category} x${e.shots}` : `x${e.shots}`;
         return `
-      <div class="log-row-card">
-        <div class="log-row">
-          <input type="date" value="${e.date}" onchange="SpeciesLog.updateEntry(${idx},'date',this.value)" />
-          ${showCategoryPicker ? `<select onchange="SpeciesLog.updateEntry(${idx},'category',this.value)">
-            ${WINGED_VERMIN_LIST.map((c) => `<option ${c === e.category ? "selected" : ""}>${c}</option>`).join("")}
-          </select>` : ""}
-          <input type="number" min="0" placeholder="Amount" value="${e.shots}" onchange="SpeciesLog.updateEntry(${idx},'shots',this.value)" style="width:70px;" />
-        </div>
-        <div class="log-row">
-          <select onchange="SpeciesLog.updateEntry(${idx},'farmId',this.value)">
-            ${farms.map((f) => `<option value="${f.id}" ${e.farmId === f.id ? "selected" : ""}>${f.name}</option>`).join("")}
-            <option value="other" ${!e.farmId || e.farmId === "other" ? "selected" : ""}>Other (type below)</option>
-          </select>
-        </div>
-        ${!e.farmId || e.farmId === "other" ? `<div class="log-row">
-          <input type="text" placeholder="Type a location" value="${e.locationText || ""}" onchange="SpeciesLog.updateEntry(${idx},'locationText',this.value)" />
-        </div>` : ""}
-        <div class="log-row">
-          <input type="text" placeholder="///what3words" value="${e.what3words || ""}" onchange="SpeciesLog.updateEntry(${idx},'what3words',this.value)" />
-          <button class="btn small ghost" onclick="SpeciesLog.captureW3w(${idx})">📍 Auto</button>
-        </div>
-        <div class="log-row photo-row">
-          ${photoThumbs}
-          <label class="btn small ghost" style="cursor:pointer;">+ Photo
-            <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="SpeciesLog.addPhoto(${idx}, this)" />
-          </label>
-          <button class="icon-btn" onclick="SpeciesLog.removeEntry(${idx})" style="margin-left:auto;">✕ Remove entry</button>
+      <div class="log-row-card compact-row" onclick="SpeciesLog.openEntryPopup(${idx})" style="cursor:pointer;">
+        <div class="log-row compact-summary">
+          <span>${e.date}</span>
+          <span>${secondLabel}</span>
+          <span>${locationLabel}</span>
         </div>
       </div>`;
       })
@@ -472,11 +380,92 @@ const SpeciesLog = {
       <div style="margin-top:8px;">${rows || '<p class="hint">No entries yet — tap "+ Add" to log one.</p>'}</div>`;
   },
 
-  addFlatEntry() {
-    const entry = this.newEntryDefaults();
-    entry.farmId = "other";
-    this.entries().push(entry);
-    this.saveAndRender();
+  // ---------- The popup editor — shared shape for BOTH compact and flat entries ----------
+  renderEntryPopup(idx) {
+    const e = this.entries()[idx];
+    const isFlat = FLAT_SECTIONS.includes(this.currentSection);
+    const def = SPECIES_SECTIONS[this.currentSection];
+    const farms = window.APP_DATA.farms || [];
+    const w3wEnabled = isFlat || W3W_SPECIES.includes(this.currentSection);
+    const photos = e.photos || [];
+    const photoThumbs = photos
+      .map((p, pIdx) => `<span class="photo-thumb-wrap"><img src="${cloudinaryThumb(p, 60)}" class="zeroing-thumb" /><button class="icon-btn photo-remove" onclick="SpeciesLog.removePhoto(${idx},${pIdx})">✕</button></span>`)
+      .join("");
+    const backAction = this.currentFarmId || !isFlat ? "SpeciesLog.closeEntryPopup()" : "SpeciesLog.closeEntryPopup()";
+
+    return `
+      <div class="map-modal-header">
+        <button class="icon-btn" onclick="${backAction}">← Back</button>
+        <h3>${def.title} Entry</h3>
+        <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">Main Menu</button>
+      </div>
+      <div class="log-row">
+        <input type="date" value="${e.date}" onchange="SpeciesLog.updateEntry(${idx},'date',this.value)" />
+        ${!isFlat ? `<select onchange="SpeciesLog.updateEntry(${idx},'ampm',this.value)" style="width:70px;">
+          <option ${e.ampm === "AM" ? "selected" : ""}>AM</option>
+          <option ${e.ampm === "PM" ? "selected" : ""}>PM</option>
+        </select>` : ""}
+      </div>
+
+      ${isFlat ? `
+      ${this.currentSection === "winged" ? `<div class="log-row">
+        <select onchange="SpeciesLog.updateEntry(${idx},'category',this.value)">
+          ${WINGED_VERMIN_LIST.map((c) => `<option ${c === e.category ? "selected" : ""}>${c}</option>`).join("")}
+        </select>
+      </div>` : ""}
+      <div class="log-row">
+        <input type="number" min="0" placeholder="Amount" value="${e.shots}" onchange="SpeciesLog.updateEntry(${idx},'shots',this.value)" style="width:90px;" />
+      </div>
+      <div class="log-row">
+        <select onchange="SpeciesLog.updateEntry(${idx},'farmId',this.value)">
+          ${farms.map((f) => `<option value="${f.id}" ${e.farmId === f.id ? "selected" : ""}>${f.name}</option>`).join("")}
+          <option value="other" ${!e.farmId || e.farmId === "other" ? "selected" : ""}>Other (type below)</option>
+        </select>
+      </div>
+      ${!e.farmId || e.farmId === "other" ? `<div class="log-row">
+        <input type="text" placeholder="Type a location" value="${e.locationText || ""}" onchange="SpeciesLog.updateEntry(${idx},'locationText',this.value)" />
+      </div>` : ""}
+      ` : `
+      <div class="log-row">
+        <select onchange="SpeciesLog.updateEntry(${idx},'category',this.value)">
+          ${categoryOptionsFor(this.currentSection).map((c) => `<option ${c === e.category ? "selected" : ""}>${c}</option>`).join("")}
+        </select>
+      </div>
+      <div class="log-row">
+        <input type="text" placeholder="Area (within property)" value="${e.area || ""}" onchange="SpeciesLog.updateEntry(${idx},'area',this.value)" />
+        <input type="number" min="0" placeholder="Shots" value="${e.shots}" onchange="SpeciesLog.updateEntry(${idx},'shots',this.value)" style="width:80px;" />
+      </div>
+      `}
+
+      ${w3wEnabled ? `<div class="log-row">
+        <input type="text" placeholder="///what3words" value="${e.what3words || ""}" onchange="SpeciesLog.updateEntry(${idx},'what3words',this.value)" />
+        <button class="btn small ghost" onclick="SpeciesLog.captureW3w(${idx})">📍 Auto</button>
+      </div>` : ""}
+
+      <div class="log-row">
+        <span class="hint" style="margin:0;">🌦️ Weather: ${e.weather || "— (set a location to auto-fill)"}</span>
+      </div>
+      <div class="log-row">
+        <span class="hint" style="margin:0;">${moonPhaseLabel(e.date) || ""} (that night)</span>
+      </div>
+
+      <div class="log-row">
+        <select onchange="SpeciesLog.handleFirearmChange(${idx}, this)">
+          <option value="" ${!e.firearm ? "selected" : ""}>Firearm…</option>
+          ${this.firearmOptionsHtml(e.firearm)}
+        </select>
+      </div>
+      <div class="log-row">
+        <input type="text" placeholder="Notes" value="${e.notes || ""}" onchange="SpeciesLog.updateEntry(${idx},'notes',this.value)" />
+      </div>
+      <div class="log-row photo-row">
+        ${photoThumbs}
+        <label class="btn small ghost" style="cursor:pointer;">+ Photo
+          <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="SpeciesLog.addPhoto(${idx}, this)" />
+        </label>
+      </div>
+      <button class="icon-btn" onclick="SpeciesLog.removeEntry(${idx})" style="margin-top:10px;">✕ Remove entry</button>
+    `;
   },
 
   renderGroupedByField() {

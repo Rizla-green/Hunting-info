@@ -4,7 +4,7 @@
 // in js/version.js. Changing this string is what makes the phone pull
 // fresh files next time it has a connection — without it, the old
 // cached version keeps being served forever.
-const CACHE_VERSION = "hunting-info-v4.11.0";
+const CACHE_VERSION = "hunting-info-v4.12.0";
 
 const CORE_FILES = [
   "./",
@@ -24,6 +24,8 @@ const CORE_FILES = [
   "./js/land-farms.js",
   "./js/farm-profile.js",
   "./js/shot-map.js",
+  "./js/moon-phase.js",
+  "./js/weather.js",
   "./js/species-log.js",
   "./js/game-shooting.js",
   "./js/clay-shooting.js",
@@ -54,6 +56,12 @@ const CORE_FILES = [
   "./icons_final/building.png",
   "./icons_final/footpath.png",
   "./icons_final/farm.png",
+  "./icons_final/lifecycle/Red.png",
+  "./icons_final/lifecycle/Fallow.png",
+  "./icons_final/lifecycle/Roe.png",
+  "./icons_final/lifecycle/Sika.png",
+  "./icons_final/lifecycle/Muntjac.png",
+  "./icons_final/lifecycle/CWD.png",
   "./icons_final/logo-192.png",
   "./icons_final/logo-512.png"
   // Menu tile + marker icons are added here too once finalised per section build.

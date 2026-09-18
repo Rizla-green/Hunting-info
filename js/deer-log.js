@@ -28,11 +28,24 @@ const DeerLog = {
   farmTab: "overview",   // 'overview' | 'setup' | 'counts' | 'quota' | 'log' | 'dashboard'
   selectedYear: null,
   subView: "log",
-  expanded: {},   // { idx: true } — collapsed-row expand state for Cull Record Log
+  popupIdx: null,   // index of the entry currently open in the popup editor, or null
 
-  toggleExpand(idx) {
-    this.expanded[idx] = !this.expanded[idx];
-    this.renderFarmBody(this.findFarm(this.currentFarmId));
+  openEntryPopup(idx) {
+    this.popupIdx = idx;
+    const overlay = document.getElementById("modalOverlay");
+    overlay.innerHTML = `<div class="modal-box species-modal-box"><div id="deerLogBody"></div></div>`;
+    overlay.classList.remove("hidden");
+    document.getElementById("deerLogBody").innerHTML = this.renderEntryPopup(idx);
+  },
+  closeEntryPopup() {
+    this.popupIdx = null;
+    this.renderFarmWorkspace();
+  },
+  saveAndRenderPopup(idx) {
+    persistData();
+    this.popupIdx = idx;
+    const body = document.getElementById("deerLogBody");
+    if (body) body.innerHTML = this.renderEntryPopup(idx);
   },
 
   entries() {
@@ -109,8 +122,11 @@ const DeerLog = {
       shotPlacement: "",
       photos: [],
       notes: "",
+      weather: "",
     });
-    this.saveAndRender();
+    this.popupIdx = entries.length - 1;
+    persistData();
+    this.openEntryPopup(this.popupIdx);
   },
 
   addEntryFromCamera(inputEl) {
@@ -138,29 +154,54 @@ const DeerLog = {
         time: "", abnormalities: "", shotPlacement: "",
         photos: [photoDataUrl],
         notes: "",
+        weather: "",
       };
       entries.push(entry);
+      const idx = entries.length - 1;
       this.saveAndRender();
       uploadAndReplace(entry.photos, 0);
+      const finish = async () => {
+        if (loc) {
+          entry.weather = await fetchWeatherForEntry(loc.lat, loc.lng, entry.date);
+          persistData();
+        }
+        this.openEntryPopup(idx);
+      };
+      finish();
+    });
+  },
+
+  captureW3w(idx) {
+    LocationMatch.captureLocation(async (loc) => {
+      if (!loc) return;
+      const entry = this.entries()[idx];
+      entry.what3words = loc.what3words;
+      entry.lat = loc.lat;
+      entry.lng = loc.lng;
+      this.saveAndRenderPopup(idx);
+      entry.weather = await fetchWeatherForEntry(loc.lat, loc.lng, entry.date);
+      this.saveAndRenderPopup(idx);
     });
   },
 
   removeEntry(idx) {
     if (!confirm("Remove this entry? This can't be undone.")) return;
     this.entries().splice(idx, 1);
-    this.saveAndRender();
+    this.popupIdx = null;
+    persistData();
+    this.renderFarmWorkspace();
   },
   updateEntry(idx, field, value) {
     const entry = this.entries()[idx];
     entry[field] = value;
     if (field === "species") entry.sex = SPECIES_TERMS[value].male;
-    this.saveAndRender();
+    this.saveAndRenderPopup(idx);
   },
   handleFirearmChange(idx, selectEl) {
     if (selectEl.value === "__add_new__") {
       const added = Firearms.addInline();
       if (added) this.updateEntry(idx, "firearm", added);
-      else this.render();
+      else this.saveAndRenderPopup(idx);
       return;
     }
     this.updateEntry(idx, "firearm", selectEl.value);
@@ -174,7 +215,7 @@ const DeerLog = {
       entry.photos = entry.photos || [];
       entry.photos.push(reader.result);
       const photoIdx = entry.photos.length - 1;
-      this.saveAndRender();
+      this.saveAndRenderPopup(idx);
       uploadAndReplace(entry.photos, photoIdx);
     };
     reader.readAsDataURL(file);
@@ -182,7 +223,7 @@ const DeerLog = {
   removePhoto(idx, photoIdx) {
     if (!confirm("Remove this photo? This can't be undone.")) return;
     this.entries()[idx].photos.splice(photoIdx, 1);
-    this.saveAndRender();
+    this.saveAndRenderPopup(idx);
   },
 
   saveAndRender() { persistData(); this.render(); },
@@ -656,19 +697,12 @@ const DeerLog = {
 
   renderFlatLog() {
     const entries = this.scopedEntries();
-    const on = (f) => isFieldOn("deer", f);
     const rows = entries
       .map((e) => {
         const idx = this.entries().indexOf(e);
-        const photos = e.photos || [];
-        const photoThumbs = photos
-          .map((p, pIdx) => `<span class="photo-thumb-wrap"><img src="${cloudinaryThumb(p, 60)}" class="zeroing-thumb" /><button class="icon-btn photo-remove" onclick="DeerLog.removePhoto(${idx},${pIdx})">✕</button></span>`)
-          .join("");
         const warning = this.checkCompliance(e.farmId, e.species, e.sex, e.date);
-
-        if (!this.expanded[idx]) {
-          return `
-      <div class="log-row-card compact-row" onclick="DeerLog.toggleExpand(${idx})" style="cursor:pointer;">
+        return `
+      <div class="log-row-card compact-row" onclick="DeerLog.openEntryPopup(${idx})" style="cursor:pointer;">
         ${warning ? `<div class="compliance-warning">⚠ ${warning}</div>` : ""}
         <div class="log-row compact-summary">
           <span>${e.date}</span>
@@ -676,66 +710,90 @@ const DeerLog = {
           <span>${e.location || ""}</span>
         </div>
       </div>`;
-        }
+      })
+      .join("");
+    return rows || '<p class="hint">No entries yet — tap "+ Add entry" above to log one.</p>';
+  },
 
-        return `
-      <div class="log-row-card">
-        ${warning ? `<div class="compliance-warning">⚠ ${warning}</div>` : ""}
-        <div class="log-row" style="justify-content:flex-end;"><button class="icon-btn" onclick="DeerLog.toggleExpand(${idx})">▲ Collapse</button></div>
-        <div class="log-row">
+  // ---------- The popup editor for a single Cull Record Log entry ----------
+  renderEntryPopup(idx) {
+    const e = this.entries()[idx];
+    const on = (f) => isFieldOn("deer", f);
+    const photos = e.photos || [];
+    const photoThumbs = photos
+      .map((p, pIdx) => `<span class="photo-thumb-wrap"><img src="${cloudinaryThumb(p, 60)}" class="zeroing-thumb" /><button class="icon-btn photo-remove" onclick="DeerLog.removePhoto(${idx},${pIdx})">✕</button></span>`)
+      .join("");
+    const warning = this.checkCompliance(e.farmId, e.species, e.sex, e.date);
+
+    return `
+      <div class="map-modal-header">
+        <button class="icon-btn" onclick="DeerLog.closeEntryPopup()">← Back</button>
+        <h3>Deer Entry</h3>
+        <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">Main Menu</button>
+      </div>
+      ${warning ? `<div class="compliance-warning">⚠ ${warning}</div>` : ""}
+      <div class="log-row">
         <input type="date" value="${e.date}" onchange="DeerLog.updateEntry(${idx},'date',this.value)" />
         <select onchange="DeerLog.updateEntry(${idx},'species',this.value)">
           ${Object.keys(SPECIES_TERMS).map((s) => `<option ${s === e.species ? "selected" : ""}>${s}</option>`).join("")}
         </select>
+      </div>
+      <div class="log-row">
         <select onchange="DeerLog.updateEntry(${idx},'sex',this.value)">
           ${this.sexOptionsFor(e.species).map((s) => `<option ${s === e.sex ? "selected" : ""}>${s}</option>`).join("")}
         </select>
         <select onchange="DeerLog.updateEntry(${idx},'age',this.value)">
           ${["Adult", "Young"].map((a) => `<option ${a === e.age ? "selected" : ""}>${a}</option>`).join("")}
         </select>
-        </div>
-        <div class="log-row">
+      </div>
+      <div class="log-row">
         ${on("location") ? `<input type="text" placeholder="Location" value="${e.location || ""}" onchange="DeerLog.updateEntry(${idx},'location',this.value)" />` : ""}
-        ${on("what3words") ? `<input type="text" placeholder="///what3words" value="${e.what3words || ""}" onchange="DeerLog.updateEntry(${idx},'what3words',this.value)" />` : ""}
         ${on("time") ? `<input type="time" value="${e.time || ""}" onchange="DeerLog.updateEntry(${idx},'time',this.value)" style="width:100px;" />` : ""}
-        </div>
-        <div class="log-row">
+      </div>
+      ${on("what3words") ? `<div class="log-row">
+        <input type="text" placeholder="///what3words" value="${e.what3words || ""}" onchange="DeerLog.updateEntry(${idx},'what3words',this.value)" />
+        <button class="btn small ghost" onclick="DeerLog.captureW3w(${idx})">📍 Auto</button>
+      </div>` : ""}
+      <div class="log-row">
+        <span class="hint" style="margin:0;">🌦️ Weather: ${e.weather || "— (set a location to auto-fill)"}</span>
+      </div>
+      <div class="log-row">
+        <span class="hint" style="margin:0;">${moonPhaseLabel(e.date) || ""} (that night)</span>
+      </div>
+      <div class="log-row">
         ${on("weight") ? `<input type="number" placeholder="Weight (kg)" value="${e.weight || ""}" onchange="DeerLog.updateEntry(${idx},'weight',this.value)" style="width:100px;" />` : ""}
         ${on("tag") ? `<input type="text" placeholder="Tag no." value="${e.tag || ""}" onchange="DeerLog.updateEntry(${idx},'tag',this.value)" style="width:90px;" />` : ""}
         ${on("condition") ? `<select onchange="DeerLog.updateEntry(${idx},'condition',this.value)">
           ${DEER_CONDITIONS.map((c) => `<option ${c === e.condition ? "selected" : ""}>${c}</option>`).join("")}
         </select>` : ""}
-        </div>
-        ${on("firearm") ? `<div class="log-row">
+      </div>
+      ${on("firearm") ? `<div class="log-row">
         <select onchange="DeerLog.handleFirearmChange(${idx}, this)">
           <option value="" ${!e.firearm ? "selected" : ""}>Firearm…</option>
           ${Firearms.list().map((f) => `<option ${f === e.firearm ? "selected" : ""}>${f}</option>`).join("")}
           <option value="__add_new__">+ Add new firearm…</option>
         </select>
-        </div>` : ""}
-        <div class="log-row">
+      </div>` : ""}
+      <div class="log-row">
         ${on("abnormalities") ? `<input type="text" placeholder="Abnormalities" value="${e.abnormalities || ""}" onchange="DeerLog.updateEntry(${idx},'abnormalities',this.value)" />` : ""}
         ${on("shotPlacement") ? `<input type="text" placeholder="Shot placement" value="${e.shotPlacement || ""}" onchange="DeerLog.updateEntry(${idx},'shotPlacement',this.value)" />` : ""}
-        </div>
-        <div class="log-row">
+      </div>
+      <div class="log-row">
         ${on("shotBy") ? `<input type="text" placeholder="Shot by" value="${e.shotBy || ""}" onchange="DeerLog.updateEntry(${idx},'shotBy',this.value)" />` : ""}
         ${on("recordedBy") ? `<input type="text" placeholder="Inspected by" value="${e.recordedBy || ""}" onchange="DeerLog.updateEntry(${idx},'recordedBy',this.value)" />` : ""}
-        </div>
-        <div class="log-row">
+      </div>
+      <div class="log-row">
         ${on("destination") ? `<input type="text" placeholder="Destination" value="${e.destination || ""}" onchange="DeerLog.updateEntry(${idx},'destination',this.value)" />` : ""}
         ${on("notes") ? `<input type="text" placeholder="Notes" value="${e.notes || ""}" onchange="DeerLog.updateEntry(${idx},'notes',this.value)" />` : ""}
-        </div>
-        ${on("photos") ? `<div class="log-row photo-row">
-          ${photoThumbs}
-          <label class="btn small ghost" style="cursor:pointer;">+ Photo
-            <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="DeerLog.addPhoto(${idx}, this)" />
-          </label>
-          <button class="icon-btn" onclick="DeerLog.removeEntry(${idx})" style="margin-left:auto;">✕ Remove entry</button>
-        </div>` : `<div class="log-row"><button class="icon-btn" onclick="DeerLog.removeEntry(${idx})" style="margin-left:auto;">✕ Remove entry</button></div>`}
-      </div>`;
-      })
-      .join("");
-    return rows || '<p class="hint">No entries yet — tap "+ Add entry" above to log one.</p>';
+      </div>
+      ${on("photos") ? `<div class="log-row photo-row">
+        ${photoThumbs}
+        <label class="btn small ghost" style="cursor:pointer;">+ Photo
+          <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="DeerLog.addPhoto(${idx}, this)" />
+        </label>
+      </div>` : ""}
+      <button class="icon-btn" onclick="DeerLog.removeEntry(${idx})" style="margin-top:10px;">✕ Remove entry</button>
+    `;
   },
 
   renderGroupedByField() {
