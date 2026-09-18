@@ -1,22 +1,52 @@
 // ---------- Menu configuration ----------
 // Order matches the confirmed spec: Land and Farms always last, full-width.
 const MENU_SECTIONS = [
-  { key: "deer",     label: "Deer",           icon: "icons_final/deer.png" },
-  { key: "fox",      label: "Fox",            icon: "icons_final/fox.png" },
-  { key: "rabbit",   label: "Rabbit",         icon: "icons_final/rabbit.png" },
-  { key: "rats",     label: "Rats",           icon: "icons_final/rat.png" },
-  { key: "squirrel", label: "Squirrels",      icon: "icons_final/squirrel.png" },
-  { key: "winged",   label: "Winged Vermin",  icon: "icons_final/crow.png" },
-  { key: "game",     label: "Game Shooting",  icon: "icons_final/pheasant.png" },
-  { key: "goats",    label: "Goats",          icon: "icons_final/goat.png" },
-  { key: "boar",     label: "Boar",           icon: "icons_final/boar.png" },
-  { key: "clay",     label: "Clay Shooting",  icon: "icons_final/clay.png" },
-  { key: "zeroing",  label: "Zeroing",        icon: "icons_final/zero.png" },
-  { key: "firearms", label: "Firearms",       icon: "icons_final/firearms.png" },
+  { key: "deer",     label: "Deer",           icon: "icons_final/deer.png",   desc: "Cull planning, close seasons, population counts and cull records." },
+  { key: "fox",      label: "Fox",            icon: "icons_final/fox.png",    desc: "Locations, tallies and records." },
+  { key: "rabbit",   label: "Rabbit",         icon: "icons_final/rabbit.png", desc: "Locations, tallies and records." },
+  { key: "rats",     label: "Rats",           icon: "icons_final/rat.png",    desc: "Locations, tallies and records." },
+  { key: "squirrel", label: "Squirrels",      icon: "icons_final/squirrel.png", desc: "Locations, tallies and records." },
+  { key: "winged",   label: "Winged Vermin",  icon: "icons_final/crow.png",   desc: "Locations, tallies and records." },
+  { key: "game",     label: "Game Shooting",  icon: "icons_final/pheasant.png", desc: "Locations, tallies and records." },
+  { key: "goats",    label: "Goats",          icon: "icons_final/goat.png",   desc: "Locations, tallies and records." },
+  { key: "boar",     label: "Boar",           icon: "icons_final/boar.png",   desc: "Locations, tallies and records." },
+  { key: "clay",     label: "Clay Shooting",  icon: "icons_final/clay.png",   desc: "Overall % hit, clays vs hits by ground." },
+  { key: "zeroing",  label: "Zeroing",        icon: "icons_final/zero.png",   desc: "Sessions by caliber, with location and weather." },
+  { key: "firearms", label: "Firearms",       icon: "icons_final/firearms.png", desc: "Manage your firearms list." },
 ];
 
-const LAND_AND_FARMS = { key: "land-farms", label: "Land and Farms", icon: "icons_final/farm.png" };
-const TRACKING_TILE = { key: "tracking", label: "Tracking", icon: "icons_final/tracking.png" };
+const LAND_AND_FARMS = { key: "land-farms", label: "Land and Farms", icon: "icons_final/farm.png", desc: "Every property/location across the whole site." };
+const TRACKING_TILE = { key: "tracking", label: "Tracking", icon: "icons_final/tracking.png", desc: "Footprint, scat and sign guide." };
+
+// Live "X shot (all time)" / "X% hit (all time)" / "X properties" stat per
+// tile, matching v3.9's tile-stat behaviour.
+function tileStatFor(key) {
+  if (key === "deer") {
+    const total = (window.APP_DATA.species?.deer || []).length;
+    return `${total} shot (all time)`;
+  }
+  if (SPECIES_SECTIONS[key]) {
+    const entries = window.APP_DATA.species?.[key] || [];
+    const total = entries.reduce((s, e) => s + (parseInt(e.shots, 10) || 1), 0);
+    return `${total} shot (all time)`;
+  }
+  if (key === "clay") {
+    const entries = window.APP_DATA.clay || [];
+    const clays = entries.reduce((s, e) => s + (parseInt(e.clays, 10) || 0), 0);
+    const hits = entries.reduce((s, e) => s + (parseInt(e.hits, 10) || 0), 0);
+    const pct = clays > 0 ? Math.round((hits / clays) * 100) : 0;
+    return `${pct}% hit (all time)`;
+  }
+  if (key === "game") {
+    const days = window.APP_DATA.gameShooting || [];
+    const total = days.reduce((s, d) => s + (d.species || []).reduce((s2, l) => s2 + (parseInt(l.hits, 10) || 0), 0), 0);
+    return `${total} shot (all time)`;
+  }
+  if (key === "land-farms") {
+    return `${(window.APP_DATA.farms || []).length} properties`;
+  }
+  return "";
+}
 
 // ---------- Render menu ----------
 function renderMenu() {
@@ -45,6 +75,8 @@ function buildTile(section) {
   tile.innerHTML = `
     <img src="${section.icon}" alt="${section.label}" />
     <span>${section.label}</span>
+    ${section.desc ? `<span class="tile-desc">${section.desc}</span>` : ""}
+    <span class="tile-stat">${tileStatFor(section.key)}</span>
   `;
   tile.addEventListener("click", () => openSection(section.key));
   return tile;
@@ -57,6 +89,14 @@ function openSection(key) {
   }
   if (key === "deer") {
     DeerLog.open();
+    return;
+  }
+  if (key === "clay") {
+    ClayShooting.open();
+    return;
+  }
+  if (key === "game") {
+    GameShooting.open();
     return;
   }
   if (SPECIES_SECTIONS[key]) {
@@ -72,7 +112,7 @@ function openSection(key) {
     return;
   }
   if (key === "zeroing") {
-    Zeroing.openCaliberList();
+    Zeroing.open();
     return;
   }
   // Placeholder — Cull Plan import is built in the next pass.
@@ -90,12 +130,16 @@ function openLandAndFarms() {
   overlay.innerHTML = `
     <div class="modal-box">
       <div class="map-modal-header">
+        <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">← Back</button>
         <h3>Land and Farms</h3>
-        <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">✕</button>
+        <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">Main Menu</button>
       </div>
       <input type="text" id="farmSearchInput" placeholder="Search farms…" oninput="filterFarmList(this.value)" style="width:100%; box-sizing:border-box; padding:8px 10px; border-radius:8px; border:1px solid var(--gold-dim); background:var(--navy); color:var(--cream); margin-bottom:10px;" />
       <div class="farm-list" id="farmListItems">
-        ${farms.map((f) => `<button class="btn secondary farm-list-item" data-name="${f.name.toLowerCase()}" onclick="FarmProfile.open('${f.id}')">${f.name}</button>`).join("")}
+        ${farms.map((f) => {
+          const row = renderLocationRow(f, "FarmProfile.open", `data-name="${f.name.toLowerCase()}"`);
+          return row.replace('</div>', `<button class="btn ghost small" onclick="event.stopPropagation(); openSharingModal('${f.id}')">Shared with</button></div>`);
+        }).join("")}
       </div>
       <button class="btn small" style="margin-top:12px;" onclick="addFarm()">+ Add farm</button>
     </div>`;
@@ -104,9 +148,26 @@ function openLandAndFarms() {
 
 function filterFarmList(query) {
   const q = query.trim().toLowerCase();
-  document.querySelectorAll(".farm-list-item").forEach((btn) => {
+  document.querySelectorAll("#farmListItems .prop-row").forEach((btn) => {
     btn.style.display = btn.dataset.name.includes(q) ? "" : "none";
   });
+}
+
+// "Shared with" — which sections a property shows up under. A button on
+// each directory row (not the profile page), matching v3.9.
+function openSharingModal(farmId) {
+  const farm = (window.APP_DATA.farms || []).find((f) => f.id === farmId);
+  if (!farm) return;
+  const profile = FarmProfile.ensureProfile(farm);
+  const ticks = MENU_SECTIONS
+    .map((s) => `<label class="tick-row"><input type="checkbox" ${profile.sharedWith[s.key] ? "checked" : ""} onchange="toggleFarmShare('${farmId}','${s.key}', this.checked)" />${s.label}</label>`)
+    .join("");
+  ReferenceInfo.showModal("Shared with", `<div class="tick-grid">${ticks}</div>`);
+}
+function toggleFarmShare(farmId, sectionKey, checked) {
+  const farm = (window.APP_DATA.farms || []).find((f) => f.id === farmId);
+  FarmProfile.ensureProfile(farm).sharedWith[sectionKey] = checked;
+  persistData();
 }
 
 // Shared across the app — Land and Farms, and every species log's farm
@@ -124,7 +185,7 @@ function addFarm() {
     postcode,
   });
   // TODO: Firestore write here, then triggerBackup(window.APP_DATA) for Dropbox.
-  triggerBackup?.(window.APP_DATA);
+  persistData();
   openLandAndFarms();
 }
 
@@ -237,11 +298,15 @@ function isAdminUser(user) {
 }
 
 function watchAuthState() {
-  firebaseAuth.onAuthStateChanged((user) => {
+  firebaseAuth.onAuthStateChanged(async (user) => {
     if (user) {
       window.APP_DATA.currentUser = { email: user.email, isAdmin: isAdminUser(user) };
       document.getElementById("loginScreen").classList.add("hidden");
+      // Show the menu shell immediately, then swap in real data once it's
+      // loaded — avoids a blank screen while Firestore responds.
       document.getElementById("menuScreen").classList.remove("hidden");
+      await loadAppData();
+      renderMenu();
     } else {
       window.APP_DATA.currentUser = null;
       document.getElementById("menuScreen").classList.add("hidden");
@@ -269,6 +334,7 @@ document.addEventListener("DOMContentLoaded", () => {
   renderVersion();
   registerServiceWorker();
   initFirebase();
+  initFirestore();
   if (firebaseAuth) watchAuthState();
   document.getElementById("loginForm").addEventListener("submit", handleLogin);
   document.getElementById("optionsButton").addEventListener("click", openOptions);

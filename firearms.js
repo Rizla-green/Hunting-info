@@ -18,14 +18,14 @@ const Firearms = {
     if (!trimmed) return;
     if (this.list().includes(trimmed)) return;
     this.list().push(trimmed);
-    triggerBackup?.(window.APP_DATA);
+    persistData();
   },
 
   remove(name) {
     if (!confirm(`Remove "${name}" from your firearms list?`)) return;
     const idx = this.list().indexOf(name);
     if (idx > -1) this.list().splice(idx, 1);
-    triggerBackup?.(window.APP_DATA);
+    persistData();
     this.render();
   },
 
@@ -34,7 +34,7 @@ const Firearms = {
     if (!trimmed) return;
     const idx = this.list().indexOf(oldName);
     if (idx > -1) this.list()[idx] = trimmed;
-    triggerBackup?.(window.APP_DATA);
+    persistData();
     this.render();
   },
 

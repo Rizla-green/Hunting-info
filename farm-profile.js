@@ -12,6 +12,8 @@ const ALL_ANIMAL_TYPES = [
   "Pheasant", "Partridge", "Duck", "Goat", "Boar",
 ];
 
+const COUNTRIES = ["England", "Wales", "Scotland", "Northern Ireland"];
+
 const FarmProfile = {
   currentFarmId: null,
 
@@ -19,6 +21,7 @@ const FarmProfile = {
     if (!farm.profile) {
       farm.profile = {
         address: farm.address || "",
+        country: "England",
         what3words: "",
         acres: "",
         landline: "",
@@ -45,19 +48,19 @@ const FarmProfile = {
     const farm = this.findFarm(this.currentFarmId);
     this.ensureProfile(farm)[field] = value;
     if (field === "address") farm.address = value; // keep top-level address in sync for Cull Plan import matching
-    triggerBackup?.(window.APP_DATA);
+    persistData();
   },
 
   toggleSpecies(animal, checked) {
     const farm = this.findFarm(this.currentFarmId);
     this.ensureProfile(farm).species[animal] = checked;
-    triggerBackup?.(window.APP_DATA);
+    persistData();
   },
 
   toggleShared(sectionKey, checked) {
     const farm = this.findFarm(this.currentFarmId);
     this.ensureProfile(farm).sharedWith[sectionKey] = checked;
-    triggerBackup?.(window.APP_DATA);
+    persistData();
   },
 
   openMap() {
@@ -73,21 +76,21 @@ const FarmProfile = {
       .map((a) => `<label class="tick-row"><input type="checkbox" ${profile.species[a] ? "checked" : ""} onchange="FarmProfile.toggleSpecies('${a}', this.checked)" />${a}</label>`)
       .join("");
 
-    const shareableSections = [...MENU_SECTIONS];
-    const sharedTicks = shareableSections
-      .map((s) => `<label class="tick-row"><input type="checkbox" ${profile.sharedWith[s.key] ? "checked" : ""} onchange="FarmProfile.toggleShared('${s.key}', this.checked)" />${s.label}</label>`)
-      .join("");
-
     overlay.innerHTML = `
       <div class="modal-box species-modal-box">
         <div class="map-modal-header">
+          <button class="icon-btn" onclick="openLandAndFarms()">← Back</button>
           <h3>${farm.name}</h3>
-          <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">✕</button>
+          <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">Main Menu</button>
         </div>
-        <button class="tab-btn" onclick="openLandAndFarms()">← All farms</button>
 
         <h4>Details</h4>
         <div class="log-row"><input type="text" placeholder="Address" value="${profile.address}" onchange="FarmProfile.updateField('address', this.value)" /></div>
+        <div class="log-row">
+          <select onchange="FarmProfile.updateField('country', this.value)">
+            ${COUNTRIES.map((c) => `<option ${c === profile.country ? "selected" : ""}>${c}</option>`).join("")}
+          </select>
+        </div>
         <div class="log-row"><input type="text" placeholder="///what3words" value="${profile.what3words}" onchange="FarmProfile.updateField('what3words', this.value)" /></div>
         <div class="log-row"><input type="text" placeholder="Acres" value="${profile.acres}" onchange="FarmProfile.updateField('acres', this.value)" /></div>
         <div class="log-row"><input type="text" placeholder="Landline" value="${profile.landline}" onchange="FarmProfile.updateField('landline', this.value)" /></div>
@@ -99,10 +102,6 @@ const FarmProfile = {
 
         <h4>Species present</h4>
         <div class="tick-grid">${speciesTicks}</div>
-
-        <h4>Shared with</h4>
-        <p class="hint" style="margin-top:0;">Which sections this property shows up under.</p>
-        <div class="tick-grid">${sharedTicks}</div>
 
         <button class="btn" style="margin-top:14px;" onclick="FarmProfile.openMap()">Open Land Map</button>
       </div>`;
