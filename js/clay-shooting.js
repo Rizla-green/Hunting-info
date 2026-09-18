@@ -152,11 +152,8 @@ const ClayShooting = {
   },
 
   renderLocationsList() {
-    const farms = window.APP_DATA.farms || [];
-    const buttons = farms.map((f) => `<button class="btn secondary" onclick="ClayShooting.drillIntoFarm('${f.id}')">${f.name}</button>`).join("");
-    const otherHasEntries = this.entries().some((e) => !e.farmId || e.farmId === "other");
-    return `<div class="farm-list">${buttons}${otherHasEntries ? `<button class="btn secondary" onclick="ClayShooting.drillIntoFarm('other')">Other</button>` : ""}
-      <p class="hint">Clay shooting locations are the same list as Land and Farms.</p></div>`;
+    return renderLocationsListHtml("ClayShooting.drillIntoFarm", this.entries().some((e) => !e.farmId || e.farmId === "other")) +
+      `<p class="hint">Clay shooting locations are the same list as Land and Farms.</p>`;
   },
 
   renderOverview() {
@@ -167,13 +164,12 @@ const ClayShooting = {
 
     const allTime = this.statsFor(scoped);
     const season = this.statsFor(yearEntries);
-    const yearTabs = years.map((y) => `<button class="tab-btn ${y === this.selectedYear ? "active" : ""}" onclick="ClayShooting.setYear('${y}')">${y}</button>`).join("");
 
     return `
       <div class="stat-cards">
         <div class="stat-card"><div class="num">${allTime.pct}%</div><div class="lbl">Overall % hit (all time)</div></div>
       </div>
-      <div class="species-tabs" style="margin-top:10px;">${yearTabs}</div>
+      <div class="species-tabs" style="margin-top:10px;">${renderYearTabs(years, this.selectedYear, "clay", "ClayShooting.setYear")}</div>
       <div class="stat-cards" style="margin-top:10px;">
         <div class="stat-card"><div class="num">${season.pct}%</div><div class="lbl">% hit this season</div></div>
         <div class="stat-card"><div class="num">${season.clays}</div><div class="lbl">Clays this season</div></div>

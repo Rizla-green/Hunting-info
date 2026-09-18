@@ -268,10 +268,7 @@ const DeerLog = {
   },
 
   renderLocationsList() {
-    const farms = window.APP_DATA.farms || [];
-    const buttons = farms.map((f) => `<button class="btn secondary" onclick="DeerLog.drillIntoFarm('${f.id}')">${f.name}</button>`).join("");
-    const otherHasEntries = this.entries().some((e) => !e.farmId || e.farmId === "other");
-    return `<div class="farm-list">${buttons}${otherHasEntries ? `<button class="btn secondary" onclick="DeerLog.drillIntoFarm('other')">Other (unmatched location)</button>` : ""}</div>`;
+    return renderLocationsListHtml("DeerLog.drillIntoFarm", this.entries().some((e) => !e.farmId || e.farmId === "other"));
   },
 
   renderOverview() {
@@ -281,20 +278,16 @@ const DeerLog = {
     const yearEntries = scoped.filter((e) => seasonLabelFor(e.date, "deer") === this.selectedYear);
 
     const totals = {};
+    Object.keys(SPECIES_TERMS).forEach((sp) => { totals[sp] = 0; });
     yearEntries.forEach((e) => { totals[e.species] = (totals[e.species] || 0) + 1; });
     const grandTotal = Object.values(totals).reduce((a, b) => a + b, 0);
     const allTimeTotal = scoped.length;
 
-    const yearTabs = years.map((y) => `<button class="tab-btn ${y === this.selectedYear ? "active" : ""}" onclick="DeerLog.setYear('${y}')">${y}</button>`).join("");
-    const totalsRows = Object.keys(SPECIES_TERMS).map((sp) => `<div class="grouped-row"><span>${sp}</span><span>${totals[sp] || 0}</span></div>`).join("");
-
     return `
-      <div class="overview-alltime">All-time total: <strong>${allTimeTotal}</strong></div>
-      <div class="species-tabs" style="margin-top:8px;">${yearTabs}</div>
-      <div class="grouped-block" style="margin-top:10px;">
-        ${totalsRows}
-        <div class="grouped-row" style="border-top:1px solid var(--gold-dim); font-weight:bold;"><span>All species</span><span>${grandTotal}</span></div>
-      </div>
+      ${renderStatCards([{ value: allTimeTotal, label: "All-time total" }])}
+      <div class="species-tabs" style="margin-top:10px;">${renderYearTabs(years, this.selectedYear, "deer", "DeerLog.setYear")}</div>
+      ${renderStatCards([{ value: grandTotal, label: "Total — season " + this.selectedYear }])}
+      <div style="margin-top:10px;">${renderCategoryTable(totals, grandTotal, "All species", "Species")}</div>
       ${this.currentFarmId ? "" : `<p class="hint">Open a farm under Locations to add or view Cull Record Log entries.</p>`}`;
   },
 

@@ -12,6 +12,8 @@ const ALL_ANIMAL_TYPES = [
   "Pheasant", "Partridge", "Duck", "Goat", "Boar",
 ];
 
+const COUNTRIES = ["England", "Wales", "Scotland", "Northern Ireland"];
+
 const FarmProfile = {
   currentFarmId: null,
 
@@ -19,6 +21,7 @@ const FarmProfile = {
     if (!farm.profile) {
       farm.profile = {
         address: farm.address || "",
+        country: "England",
         what3words: "",
         acres: "",
         landline: "",
@@ -88,6 +91,11 @@ const FarmProfile = {
 
         <h4>Details</h4>
         <div class="log-row"><input type="text" placeholder="Address" value="${profile.address}" onchange="FarmProfile.updateField('address', this.value)" /></div>
+        <div class="log-row">
+          <select onchange="FarmProfile.updateField('country', this.value)">
+            ${COUNTRIES.map((c) => `<option ${c === profile.country ? "selected" : ""}>${c}</option>`).join("")}
+          </select>
+        </div>
         <div class="log-row"><input type="text" placeholder="///what3words" value="${profile.what3words}" onchange="FarmProfile.updateField('what3words', this.value)" /></div>
         <div class="log-row"><input type="text" placeholder="Acres" value="${profile.acres}" onchange="FarmProfile.updateField('acres', this.value)" /></div>
         <div class="log-row"><input type="text" placeholder="Landline" value="${profile.landline}" onchange="FarmProfile.updateField('landline', this.value)" /></div>

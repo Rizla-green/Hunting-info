@@ -99,7 +99,7 @@ function openLandAndFarms() {
       </div>
       <input type="text" id="farmSearchInput" placeholder="Search farms…" oninput="filterFarmList(this.value)" style="width:100%; box-sizing:border-box; padding:8px 10px; border-radius:8px; border:1px solid var(--gold-dim); background:var(--navy); color:var(--cream); margin-bottom:10px;" />
       <div class="farm-list" id="farmListItems">
-        ${farms.map((f) => `<button class="btn secondary farm-list-item" data-name="${f.name.toLowerCase()}" onclick="FarmProfile.open('${f.id}')">${f.name}</button>`).join("")}
+        ${farms.map((f) => renderLocationRow(f, "FarmProfile.open").replace('onclick="FarmProfile.open', `data-name="${f.name.toLowerCase()}" onclick="FarmProfile.open`)).join("")}
       </div>
       <button class="btn small" style="margin-top:12px;" onclick="addFarm()">+ Add farm</button>
     </div>`;
@@ -108,7 +108,7 @@ function openLandAndFarms() {
 
 function filterFarmList(query) {
   const q = query.trim().toLowerCase();
-  document.querySelectorAll(".farm-list-item").forEach((btn) => {
+  document.querySelectorAll("#farmListItems .prop-row").forEach((btn) => {
     btn.style.display = btn.dataset.name.includes(q) ? "" : "none";
   });
 }

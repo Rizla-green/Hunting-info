@@ -43,3 +43,60 @@ function seasonYearsFor(entries, sectionKey) {
   labels.add(currentSeasonLabel(sectionKey));
   return Array.from(labels).sort().reverse();
 }
+
+/* =====================================================================
+   SHARED UI HELPERS — v3.9 look, reused by every Overview/Locations
+   screen (species logs, Deer, Clay Shooting) so they can't drift apart
+   from each other again.
+===================================================================== */
+
+// Stat-card style all-time/season numbers, matching v3.9's prominent
+// number display instead of a plain text line.
+function renderStatCards(cards) {
+  return `<div class="stat-cards">${cards
+    .map((c) => `<div class="stat-card"><div class="num">${c.value}</div><div class="lbl">${c.label}</div></div>`)
+    .join("")}</div>`;
+}
+
+// Year tabs with "(current)" on whichever season we're actually in —
+// v3.9 always marks this explicitly.
+function renderYearTabs(years, selectedYear, sectionKey, onclickFn) {
+  const cur = currentSeasonLabel(sectionKey);
+  return years
+    .map((y) => `<button class="tab-btn ${y === selectedYear ? "active" : ""}" onclick="${onclickFn}('${y}')">${y}${y === cur ? " (current)" : ""}</button>`)
+    .join("");
+}
+
+// Real two-column Category | Total table, matching v3.9's actual
+// <table> markup rather than styled flex rows.
+function renderCategoryTable(totals, grandTotal, grandLabel, colHeader) {
+  const rows = Object.keys(totals)
+    .map((c) => `<tr><td>${c}</td><td><strong>${totals[c]}</strong></td></tr>`)
+    .join("");
+  return `<div class="table-scroll"><table class="data-table">
+    <tr><th>${colHeader || "Category"}</th><th>Total</th></tr>
+    ${rows}
+    <tr style="font-weight:700;"><td>${grandLabel || "All categories"}</td><td>${grandTotal}</td></tr>
+  </table></div>`;
+}
+
+// Locations list row: letter avatar + name + country, matching v3.9
+// (rather than a plain unlabelled button).
+function renderLocationRow(farm, onclickFn) {
+  const letter = (farm.name || "?").trim()[0]?.toUpperCase() || "?";
+  const country = farm.profile?.country || "";
+  return `<div class="prop-row" onclick="${onclickFn}('${farm.id}')">
+    <span class="letter-tick">${letter}</span>
+    <span class="name">${farm.name}</span>
+    <span class="meta">${country}</span>
+  </div>`;
+}
+
+function renderLocationsListHtml(onclickFn, includeOther) {
+  const farms = window.APP_DATA.farms || [];
+  const rows = farms.map((f) => renderLocationRow(f, onclickFn)).join("");
+  const otherRow = includeOther
+    ? `<div class="prop-row" onclick="${onclickFn}('other')"><span class="letter-tick">?</span><span class="name">Other</span><span class="meta">Unmatched location</span></div>`
+    : "";
+  return `<div class="farm-list">${rows}${otherRow}</div>`;
+}

@@ -577,3 +577,48 @@ table.data-table select {
 }
 .stat-card .num { color: var(--gold); font-size: 20px; font-weight: bold; }
 .stat-card .lbl { color: var(--cream); font-size: 10px; opacity: 0.75; margin-top: 2px; }
+
+/* ---------- Locations list (letter avatar + name + country) ---------- */
+.prop-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--navy-light);
+  cursor: pointer;
+}
+.prop-row:hover { background: var(--navy-light); }
+.letter-tick {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--gold);
+  color: var(--navy);
+  font-weight: bold;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.prop-row .name { color: var(--cream); font-size: 13.5px; }
+.prop-row .meta { color: var(--gold-dim); font-size: 11px; margin-left: auto; }
+
+/* ---------- Real data table (Category | Total, matching v3.9) ---------- */
+.table-scroll { overflow-x: auto; border-radius: 8px; border: 1px solid var(--gold-dim); }
+table.data-table { width: 100%; border-collapse: collapse; }
+table.data-table th {
+  background: var(--navy-light);
+  color: var(--gold);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  text-align: left;
+  padding: 8px 10px;
+}
+table.data-table td {
+  padding: 7px 10px;
+  color: var(--cream);
+  border-bottom: 1px solid var(--navy-light);
+  font-size: 13px;
+}
