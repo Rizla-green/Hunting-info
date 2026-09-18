@@ -310,13 +310,17 @@ const GameShooting = {
     html += `<div class="section-title" style="margin-top:16px;"><h4>Day total (rough tally)</h4></div>`;
     html += `<p class="hint" style="margin-top:0;">Just for this day — doesn't count towards any tally elsewhere.</p>`;
     html += `<div class="log-row">
-      <input type="number" min="0" placeholder="Total shots" value="${day.dayTotalShots || 0}" onchange="GameShooting.updateDraft('dayTotalShots',this.value)" style="width:120px;" />
-      <input type="number" min="0" placeholder="Total guns" value="${day.gunsStanding || 0}" onchange="GameShooting.updateDraft('gunsStanding',this.value)" style="width:120px;" />
+      <label style="flex:1;"><span class="hint" style="display:block; margin:0 0 2px;">Total shots</span>
+        <input type="number" min="0" value="${day.dayTotalShots || 0}" onchange="GameShooting.updateDraft('dayTotalShots',this.value)" />
+      </label>
+      <label style="flex:1;"><span class="hint" style="display:block; margin:0 0 2px;">Total guns</span>
+        <input type="number" min="0" value="${day.gunsStanding || 0}" onchange="GameShooting.updateDraft('gunsStanding',this.value)" />
+      </label>
     </div>`;
     html += dayTotalRows;
     html += `<button class="btn small ghost" onclick="GameShooting.addDayTotalLine()">+ Add species</button>`;
 
-    html += `<button class="icon-btn" onclick="GameShooting.removeDraft()" style="margin-top:14px;">✕ Remove day</button>`;
+    html += `${Popup.removeFooter("GameShooting.removeDraft()", "Remove day")}`;
     html += Popup.saveFooter("GameShooting.saveDraft()");
     html += `</div>`;
     return html;

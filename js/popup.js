@@ -53,9 +53,13 @@ const Popup = {
       </div>`;
   },
 
-  // Footer with the Save action — sits at the BOTTOM of the popup content, styled as a proper full-width button.
+  // Footer actions — both sit at the BOTTOM of the popup content, same
+  // prominent full-width button style. Remove is the destructive variant.
   saveFooter(onSaveJs) {
-    return `<button class="btn popup-save-btn" onclick="${onSaveJs}">💾 Save</button>`;
+    return `<button class="btn popup-save-btn" onclick="${onSaveJs}">Save</button>`;
+  },
+  removeFooter(onRemoveJs, label) {
+    return `<button class="btn popup-save-btn popup-remove-btn" onclick="${onRemoveJs}">${label || "Remove"}</button>`;
   },
 
   refHeader(title) { return this.header(title); },

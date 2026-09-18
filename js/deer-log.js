@@ -26,6 +26,7 @@ const DEER_CONDITIONS = ["Good", "Fair", "Poor", "Rejected"];
 const DeerLog = {
   currentFarmId: null,
   farmTab: "overview",   // 'overview' | 'setup' | 'counts' | 'quota' | 'log' | 'dashboard'
+  speciesWideTab: "overview", // 'overview' | 'list' | 'cullplans'
   selectedYear: null,
   subView: "log",
   draft: null,       // entry currently open in the popup (a working copy — not yet saved)
@@ -126,6 +127,7 @@ const DeerLog = {
 
   open() {
     this.currentFarmId = null;
+    this.speciesWideTab = "overview";
     this.selectedYear = currentSeasonLabel("deer");
     this.render();
   },
@@ -285,35 +287,83 @@ const DeerLog = {
           <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">Main Menu</button>
         </div>
         <div class="species-tabs">
-          <button class="tab-btn" onclick="ReferenceInfo.seasons()">Seasons</button>
-          <button class="tab-btn" onclick="ReferenceInfo.lymphNodes()">Lymph Nodes</button>
-          <button class="tab-btn" onclick="ReferenceInfo.deerDisease()">Disease</button>
-          <button class="tab-btn" onclick="ReferenceInfo.deerLifecycle()">Lifecycle</button>
+          <button class="tab-btn ${this.speciesWideTab === "overview" ? "active" : ""}" onclick="DeerLog.setSpeciesWideTab('overview')">Overview</button>
+          <button class="tab-btn ${this.speciesWideTab === "list" ? "active" : ""}" onclick="DeerLog.setSpeciesWideTab('list')">List</button>
+          <button class="tab-btn ${this.speciesWideTab === "cullplans" ? "active" : ""}" onclick="DeerLog.setSpeciesWideTab('cullplans')">Cull Plans</button>
         </div>
-
-        <div class="section-title"><h4>Deer culled — all properties</h4></div>
-        ${renderStatCards([{ value: allTimeTotal, label: "Overall total shot (all years) — tap for breakdown" }])
-          .replace('<div class="stat-card">', `<div class="stat-card" style="cursor:pointer;" onclick="DeerLog.openSpeciesBreakdown()">`)}
-        <p class="hint">Season year runs 1 April – 31 March.</p>
-        <div class="species-tabs">${renderYearTabs(years, this.selectedYear, "deer", "DeerLog.setYear")}</div>
-        <div id="deerYearStat"></div>
-        <div id="deerYearTable"></div>
-
-        <div class="section-title" style="margin-top:18px;"><h4>List</h4></div>
-        <button class="btn small" style="display:block; width:100%;" onclick="DeerLog.openAddPopup()">+ Add entry</button>
-        <p class="hint">Tap a property's name for its total deer shot and the tally by year.</p>
-        <div id="deerQuickPropList"></div>
-
-        <div class="section-title" style="margin-top:18px;"><h4>Cull Plans</h4></div>
-        <input type="text" id="deerFarmSearch" placeholder="Filter properties…" oninput="DeerLog.filterCullPlanList(this.value)"
-          style="width:100%; box-sizing:border-box; padding:8px 10px; border-radius:8px; border:1px solid var(--gold-dim); background:var(--navy); color:var(--cream); margin-bottom:10px;" />
-        <div id="deerCullPlanList"></div>
+        <div id="deerSpeciesWideBody"></div>
       </div>`;
     overlay.classList.remove("hidden");
+    this.renderSpeciesWideBody(allTimeTotal, years);
+  },
 
+  setSpeciesWideTab(tab) { this.speciesWideTab = tab; this.renderSpeciesWide(); },
+
+  renderSpeciesWideBody(allTimeTotal, years) {
+    const body = document.getElementById("deerSpeciesWideBody");
+    if (this.speciesWideTab === "list") {
+      body.innerHTML = `
+        <button class="icon-btn" onclick="DeerLog.openColumnSettings()" title="Choose list columns">⚙ List columns</button>
+        <button class="btn small" style="display:block; width:100%; margin-top:10px;" onclick="DeerLog.openAddPopup()">+ Add entry</button>
+        <p class="hint">Tap a property's name for its total deer shot and the tally by year.</p>
+        <div id="deerQuickPropList"></div>`;
+      this.renderQuickPropList();
+      return;
+    }
+    if (this.speciesWideTab === "cullplans") {
+      body.innerHTML = `
+        <input type="text" id="deerFarmSearch" placeholder="Filter properties…" oninput="DeerLog.filterCullPlanList(this.value)"
+          style="width:100%; box-sizing:border-box; padding:8px 10px; border-radius:8px; border:1px solid var(--gold-dim); background:var(--navy); color:var(--cream); margin-bottom:10px;" />
+        <div id="deerCullPlanList"></div>`;
+      this.renderCullPlanList();
+      return;
+    }
+    // Overview
+    body.innerHTML = `
+      <div class="species-tabs">
+        <button class="tab-btn" onclick="ReferenceInfo.seasons()">Seasons</button>
+        <button class="tab-btn" onclick="ReferenceInfo.lymphNodes()">Lymph Nodes</button>
+        <button class="tab-btn" onclick="ReferenceInfo.deerDisease()">Disease</button>
+        <button class="tab-btn" onclick="ReferenceInfo.deerLifecycle()">Lifecycle</button>
+      </div>
+      <div class="section-title"><h4>Deer culled — all properties</h4></div>
+      ${renderStatCards([{ value: allTimeTotal, label: "Overall total shot (all years) — tap for breakdown" }])
+        .replace('<div class="stat-card">', `<div class="stat-card" style="cursor:pointer;" onclick="DeerLog.openSpeciesBreakdown()">`)}
+      <p class="hint">Season year runs 1 April – 31 March.</p>
+      <div class="species-tabs">${renderYearTabs(years, this.selectedYear, "deer", "DeerLog.setYear")}</div>
+      <div id="deerYearStat"></div>
+      <div id="deerYearTable"></div>`;
     this.renderYearBlock();
-    this.renderQuickPropList();
-    this.renderCullPlanList();
+  },
+
+  listColumnCandidates: [
+    { key: "species", label: "Species" }, { key: "location", label: "Location" },
+    { key: "firearm", label: "Weapon" }, { key: "notes", label: "Notes" },
+  ],
+  listColumns() {
+    window.APP_DATA.listColumnPrefs = window.APP_DATA.listColumnPrefs || {};
+    return window.APP_DATA.listColumnPrefs.deer || ["species", "location"];
+  },
+  openColumnSettings() {
+    const current = this.listColumns();
+    const html = `
+      ${Popup.header("List columns")}
+      <div style="padding:0 16px 16px;">
+        <p class="hint" style="margin-top:0;">Date and Sex always show. Choose what else appears on each summary line.</p>
+        ${this.listColumnCandidates.map((c) => `
+          <label style="display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid var(--navy-light);">
+            <input type="checkbox" ${current.includes(c.key) ? "checked" : ""} onchange="DeerLog.toggleListColumn('${c.key}', this.checked)" />
+            ${c.label}
+          </label>`).join("")}
+      </div>`;
+    Popup.open(html, () => this.renderSpeciesWide());
+  },
+  toggleListColumn(key, checked) {
+    window.APP_DATA.listColumnPrefs = window.APP_DATA.listColumnPrefs || {};
+    let cols = window.APP_DATA.listColumnPrefs.deer || ["species", "location"];
+    cols = checked ? [...new Set([...cols, key])] : cols.filter((c) => c !== key);
+    window.APP_DATA.listColumnPrefs.deer = cols;
+    persistData();
   },
 
   renderYearBlock() {
@@ -378,6 +428,9 @@ const DeerLog = {
     const other = entries.filter((e) => !e.farmId || e.farmId === "other" || !farms.some((f) => f.id === e.farmId));
     if (other.length) groups.push({ id: "other", name: "Other", list: other });
 
+    const cols = this.listColumns();
+    const colLabel = (e) => cols.map((c) => c === "species" ? e.species : c === "location" ? (e.location || "") : c === "firearm" ? (e.firearm || "") : c === "notes" ? (e.notes || "") : "").filter(Boolean).join(" · ");
+
     el.innerHTML = groups
       .map((g) => {
         const sorted = g.list.slice().sort((a, b) => a.date.localeCompare(b.date)); // oldest first
@@ -391,7 +444,7 @@ const DeerLog = {
         <div class="log-row compact-summary">
           <span>${e.date}</span>
           <span>${e.sex}</span>
-          <span>${e.location || ""}</span>
+          <span>${colLabel(e)}</span>
         </div>
       </div>`;
           })
@@ -791,7 +844,7 @@ const DeerLog = {
         <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="DeerLog.addPhoto(this)" />
       </label>
     </div>` : ""}
-    <button class="icon-btn" onclick="DeerLog.removeDraft()" style="margin-top:10px;">✕ Remove entry</button>
+    ${Popup.removeFooter("DeerLog.removeDraft()", "Remove entry")}
     ${Popup.saveFooter("DeerLog.saveDraft()")}
     </div>`;
     return html;

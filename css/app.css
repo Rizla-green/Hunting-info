@@ -298,6 +298,12 @@ body {
   border-radius: 10px;
 }
 .popup-save-btn:active { transform: scale(0.98); }
+.popup-remove-btn {
+  background: transparent;
+  color: var(--red);
+  border: 1px solid var(--red);
+  margin-top: 10px;
+}
 
 /* ---------- Full-page section screens (was a popup overlay — now a
    real page, matching v3.9: each section replaces the visible screen,
@@ -335,6 +341,10 @@ body {
   border-bottom: 1px solid var(--navy-light);
 }
 .map-modal-header h3 { margin: 0; color: var(--gold); font-size: 17px; }
+.modal-box > *:not(.map-modal-header):first-of-type,
+.modal-box .map-modal-header + * {
+  margin-top: 16px;
+}
 .icon-btn {
   background: none;
   border: none;

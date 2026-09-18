@@ -253,7 +253,7 @@ const ClayShooting = {
         <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="ClayShooting.addPhoto(this)" />
       </label>
     </div>
-    <button class="icon-btn" onclick="ClayShooting.removeDraft()" style="margin-top:10px;">✕ Remove entry</button>
+    ${Popup.removeFooter("ClayShooting.removeDraft()", "Remove entry")}
     ${Popup.saveFooter("ClayShooting.saveDraft()")}
     </div>`;
     return html;

@@ -238,7 +238,7 @@ const Zeroing = {
         <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="Zeroing.addPhoto(this)" />
       </label>
     </div>
-    <button class="icon-btn" onclick="Zeroing.removeDraft()" style="margin-top:10px;">✕ Remove session</button>
+    ${Popup.removeFooter("Zeroing.removeDraft()", "Remove session")}
     ${Popup.saveFooter("Zeroing.saveDraft()")}
     </div>`;
     return html;

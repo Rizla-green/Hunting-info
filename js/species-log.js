@@ -506,7 +506,7 @@ const SpeciesLog = {
         <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="SpeciesLog.addPhoto(this)" />
       </label>
     </div>`;
-    html += `<button class="icon-btn" onclick="SpeciesLog.removeDraft()" style="margin-top:10px;">✕ Remove entry</button>`;
+    html += `${Popup.removeFooter("SpeciesLog.removeDraft()", "Remove entry")}`;
     html += Popup.saveFooter("SpeciesLog.saveDraft()");
     html += `</div>`;
     return html;
