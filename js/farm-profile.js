@@ -76,11 +76,6 @@ const FarmProfile = {
       .map((a) => `<label class="tick-row"><input type="checkbox" ${profile.species[a] ? "checked" : ""} onchange="FarmProfile.toggleSpecies('${a}', this.checked)" />${a}</label>`)
       .join("");
 
-    const shareableSections = [...MENU_SECTIONS];
-    const sharedTicks = shareableSections
-      .map((s) => `<label class="tick-row"><input type="checkbox" ${profile.sharedWith[s.key] ? "checked" : ""} onchange="FarmProfile.toggleShared('${s.key}', this.checked)" />${s.label}</label>`)
-      .join("");
-
     overlay.innerHTML = `
       <div class="modal-box species-modal-box">
         <div class="map-modal-header">
@@ -107,10 +102,6 @@ const FarmProfile = {
 
         <h4>Species present</h4>
         <div class="tick-grid">${speciesTicks}</div>
-
-        <h4>Shared with</h4>
-        <p class="hint" style="margin-top:0;">Which sections this property shows up under.</p>
-        <div class="tick-grid">${sharedTicks}</div>
 
         <button class="btn" style="margin-top:14px;" onclick="FarmProfile.openMap()">Open Land Map</button>
       </div>`;

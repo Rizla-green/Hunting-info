@@ -1,22 +1,47 @@
 // ---------- Menu configuration ----------
 // Order matches the confirmed spec: Land and Farms always last, full-width.
 const MENU_SECTIONS = [
-  { key: "deer",     label: "Deer",           icon: "icons_final/deer.png" },
-  { key: "fox",      label: "Fox",            icon: "icons_final/fox.png" },
-  { key: "rabbit",   label: "Rabbit",         icon: "icons_final/rabbit.png" },
-  { key: "rats",     label: "Rats",           icon: "icons_final/rat.png" },
-  { key: "squirrel", label: "Squirrels",      icon: "icons_final/squirrel.png" },
-  { key: "winged",   label: "Winged Vermin",  icon: "icons_final/crow.png" },
-  { key: "game",     label: "Game Shooting",  icon: "icons_final/pheasant.png" },
-  { key: "goats",    label: "Goats",          icon: "icons_final/goat.png" },
-  { key: "boar",     label: "Boar",           icon: "icons_final/boar.png" },
-  { key: "clay",     label: "Clay Shooting",  icon: "icons_final/clay.png" },
-  { key: "zeroing",  label: "Zeroing",        icon: "icons_final/zero.png" },
-  { key: "firearms", label: "Firearms",       icon: "icons_final/firearms.png" },
+  { key: "deer",     label: "Deer",           icon: "icons_final/deer.png",   desc: "Cull planning, close seasons, population counts and cull records." },
+  { key: "fox",      label: "Fox",            icon: "icons_final/fox.png",    desc: "Locations, tallies and records." },
+  { key: "rabbit",   label: "Rabbit",         icon: "icons_final/rabbit.png", desc: "Locations, tallies and records." },
+  { key: "rats",     label: "Rats",           icon: "icons_final/rat.png",    desc: "Locations, tallies and records." },
+  { key: "squirrel", label: "Squirrels",      icon: "icons_final/squirrel.png", desc: "Locations, tallies and records." },
+  { key: "winged",   label: "Winged Vermin",  icon: "icons_final/crow.png",   desc: "Locations, tallies and records." },
+  { key: "game",     label: "Game Shooting",  icon: "icons_final/pheasant.png", desc: "Locations, tallies and records." },
+  { key: "goats",    label: "Goats",          icon: "icons_final/goat.png",   desc: "Locations, tallies and records." },
+  { key: "boar",     label: "Boar",           icon: "icons_final/boar.png",   desc: "Locations, tallies and records." },
+  { key: "clay",     label: "Clay Shooting",  icon: "icons_final/clay.png",   desc: "Overall % hit, clays vs hits by ground." },
+  { key: "zeroing",  label: "Zeroing",        icon: "icons_final/zero.png",   desc: "Sessions by caliber, with location and weather." },
+  { key: "firearms", label: "Firearms",       icon: "icons_final/firearms.png", desc: "Manage your firearms list." },
 ];
 
-const LAND_AND_FARMS = { key: "land-farms", label: "Land and Farms", icon: "icons_final/farm.png" };
-const TRACKING_TILE = { key: "tracking", label: "Tracking", icon: "icons_final/tracking.png" };
+const LAND_AND_FARMS = { key: "land-farms", label: "Land and Farms", icon: "icons_final/farm.png", desc: "Every property/location across the whole site." };
+const TRACKING_TILE = { key: "tracking", label: "Tracking", icon: "icons_final/tracking.png", desc: "Footprint, scat and sign guide." };
+
+// Live "X shot (all time)" / "X% hit (all time)" / "X properties" stat per
+// tile, matching v3.9's tile-stat behaviour.
+function tileStatFor(key) {
+  if (key === "deer") {
+    const total = (window.APP_DATA.species?.deer || []).length;
+    return `${total} shot (all time)`;
+  }
+  if (SPECIES_SECTIONS[key]) {
+    const entries = window.APP_DATA.species?.[key] || [];
+    const total = entries.reduce((s, e) => s + (parseInt(e.shots, 10) || 1), 0);
+    return `${total} shot (all time)`;
+  }
+  if (key === "clay") {
+    const entries = window.APP_DATA.clay || [];
+    const clays = entries.reduce((s, e) => s + (parseInt(e.clays, 10) || 0), 0);
+    const hits = entries.reduce((s, e) => s + (parseInt(e.hits, 10) || 0), 0);
+    const pct = clays > 0 ? Math.round((hits / clays) * 100) : 0;
+    return `${pct}% hit (all time)`;
+  }
+  if (key === "land-farms") {
+    return `${(window.APP_DATA.farms || []).length} properties`;
+  }
+  return "";
+}
 
 // ---------- Render menu ----------
 function renderMenu() {
@@ -45,6 +70,8 @@ function buildTile(section) {
   tile.innerHTML = `
     <img src="${section.icon}" alt="${section.label}" />
     <span>${section.label}</span>
+    ${section.desc ? `<span class="tile-desc">${section.desc}</span>` : ""}
+    <span class="tile-stat">${tileStatFor(section.key)}</span>
   `;
   tile.addEventListener("click", () => openSection(section.key));
   return tile;
@@ -99,7 +126,10 @@ function openLandAndFarms() {
       </div>
       <input type="text" id="farmSearchInput" placeholder="Search farms…" oninput="filterFarmList(this.value)" style="width:100%; box-sizing:border-box; padding:8px 10px; border-radius:8px; border:1px solid var(--gold-dim); background:var(--navy); color:var(--cream); margin-bottom:10px;" />
       <div class="farm-list" id="farmListItems">
-        ${farms.map((f) => renderLocationRow(f, "FarmProfile.open").replace('onclick="FarmProfile.open', `data-name="${f.name.toLowerCase()}" onclick="FarmProfile.open`)).join("")}
+        ${farms.map((f) => {
+          const row = renderLocationRow(f, "FarmProfile.open", `data-name="${f.name.toLowerCase()}"`);
+          return row.replace('</div>', `<button class="btn ghost small" onclick="event.stopPropagation(); openSharingModal('${f.id}')">Shared with</button></div>`);
+        }).join("")}
       </div>
       <button class="btn small" style="margin-top:12px;" onclick="addFarm()">+ Add farm</button>
     </div>`;
@@ -111,6 +141,23 @@ function filterFarmList(query) {
   document.querySelectorAll("#farmListItems .prop-row").forEach((btn) => {
     btn.style.display = btn.dataset.name.includes(q) ? "" : "none";
   });
+}
+
+// "Shared with" — which sections a property shows up under. A button on
+// each directory row (not the profile page), matching v3.9.
+function openSharingModal(farmId) {
+  const farm = (window.APP_DATA.farms || []).find((f) => f.id === farmId);
+  if (!farm) return;
+  const profile = FarmProfile.ensureProfile(farm);
+  const ticks = MENU_SECTIONS
+    .map((s) => `<label class="tick-row"><input type="checkbox" ${profile.sharedWith[s.key] ? "checked" : ""} onchange="toggleFarmShare('${farmId}','${s.key}', this.checked)" />${s.label}</label>`)
+    .join("");
+  ReferenceInfo.showModal("Shared with", `<div class="tick-grid">${ticks}</div>`);
+}
+function toggleFarmShare(farmId, sectionKey, checked) {
+  const farm = (window.APP_DATA.farms || []).find((f) => f.id === farmId);
+  FarmProfile.ensureProfile(farm).sharedWith[sectionKey] = checked;
+  persistData();
 }
 
 // Shared across the app — Land and Farms, and every species log's farm

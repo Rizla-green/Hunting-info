@@ -96,10 +96,9 @@ const ClayShooting = {
 
   setTopTab(tab) { this.topTab = tab; this.render(); },
   setYear(year) { this.selectedYear = year; this.render(); },
-  setFarmSubTab(tab) { this.farmSubTab = tab; this.render(); },
   drillIntoFarm(farmId) {
     this.currentFarmId = farmId;
-    this.farmSubTab = "overview";
+    document.getElementById("modalOverlay").classList.add("hidden");
     this.render();
   },
   backToSpeciesWide() {
@@ -125,14 +124,11 @@ const ClayShooting = {
           <h3>Clay Shooting${inFarm ? " — " + this.farmName(this.currentFarmId) : ""}</h3>
           <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">✕</button>
         </div>
-        ${inFarm ? `<button class="tab-btn" onclick="ClayShooting.backToSpeciesWide()">← All grounds</button>` : ""}
+        ${inFarm ? `<button class="tab-btn" onclick="ClayShooting.backToSpeciesWide()">← All grounds</button>` : `
         <div class="species-tabs">
-          ${inFarm
-            ? `<button class="tab-btn ${this.farmSubTab === "overview" ? "active" : ""}" onclick="ClayShooting.setFarmSubTab('overview')">Overview</button>
-               <button class="tab-btn ${this.farmSubTab === "log" ? "active" : ""}" onclick="ClayShooting.setFarmSubTab('log')">Records</button>`
-            : `<button class="tab-btn ${this.topTab === "overview" ? "active" : ""}" onclick="ClayShooting.setTopTab('overview')">Overview</button>
-               <button class="tab-btn ${this.topTab === "locations" ? "active" : ""}" onclick="ClayShooting.setTopTab('locations')">Locations</button>`}
-        </div>
+          <button class="tab-btn ${this.topTab === "overview" ? "active" : ""}" onclick="ClayShooting.setTopTab('overview')">Overview</button>
+          <button class="tab-btn ${this.topTab === "locations" ? "active" : ""}" onclick="ClayShooting.setTopTab('locations')">Locations</button>
+        </div>`}
         <div id="clayBody"></div>
       </div>`;
     overlay.classList.remove("hidden");
@@ -143,7 +139,7 @@ const ClayShooting = {
     const body = document.getElementById("clayBody");
     const inFarm = !!this.currentFarmId;
     if (inFarm) {
-      body.innerHTML = this.farmSubTab === "log" ? this.renderRecords() : this.renderOverview();
+      body.innerHTML = this.renderGroundPage();
     } else if (this.topTab === "locations") {
       body.innerHTML = this.renderLocationsList();
     } else {
@@ -175,13 +171,32 @@ const ClayShooting = {
         <div class="stat-card"><div class="num">${season.clays}</div><div class="lbl">Clays this season</div></div>
         <div class="stat-card"><div class="num">${season.hits}</div><div class="lbl">Hits this season</div></div>
       </div>
-      ${this.currentFarmId ? "" : `<p class="hint">Open a ground under Locations to add or view Records.</p>`}`;
+      <p class="hint">Open a ground under Locations to add or view Records.</p>`;
   },
 
-  renderRecords() {
+  // One continuous page per ground: stats -> Records, no sub-tab.
+  renderGroundPage() {
+    const scoped = this.scopedEntries();
+    const years = seasonYearsFor(scoped, "clay");
+    if (!years.includes(this.selectedYear)) this.selectedYear = years[0];
+    const yearEntries = scoped.filter((e) => seasonLabelFor(e.date, "clay") === this.selectedYear);
+    const allTime = this.statsFor(scoped);
+    const season = this.statsFor(yearEntries);
+
     return `
-      <button class="btn small" onclick="ClayShooting.addEntry()">+ Add entry</button>
-      <div style="margin-top:12px;">${this.renderTable()}</div>`;
+      <div class="stat-cards">
+        <div class="stat-card"><div class="num">${allTime.pct}%</div><div class="lbl">Overall % hit (all time)</div></div>
+        <div class="stat-card"><div class="num">${allTime.clays}</div><div class="lbl">Total clays</div></div>
+        <div class="stat-card"><div class="num">${allTime.hits}</div><div class="lbl">Total hits</div></div>
+      </div>
+      <div class="species-tabs" style="margin-top:10px;">${renderYearTabs(years, this.selectedYear, "clay", "ClayShooting.setYear")}</div>
+      <div class="stat-cards" style="margin-top:10px;">
+        <div class="stat-card"><div class="num">${season.pct}%</div><div class="lbl">% hit this season</div></div>
+      </div>
+
+      <div class="section-title" style="margin-top:18px;"><h4>Records</h4></div>
+      <div style="margin-top:8px;">${this.renderTable()}</div>
+      <button class="btn small" style="margin-top:10px;" onclick="ClayShooting.addEntry()">+ Add entry</button>`;
   },
 
   renderTable() {

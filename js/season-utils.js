@@ -82,10 +82,10 @@ function renderCategoryTable(totals, grandTotal, grandLabel, colHeader) {
 
 // Locations list row: letter avatar + name + country, matching v3.9
 // (rather than a plain unlabelled button).
-function renderLocationRow(farm, onclickFn) {
+function renderLocationRow(farm, onclickFn, extraAttrs) {
   const letter = (farm.name || "?").trim()[0]?.toUpperCase() || "?";
   const country = farm.profile?.country || "";
-  return `<div class="prop-row" onclick="${onclickFn}('${farm.id}')">
+  return `<div class="prop-row" ${extraAttrs || ""} onclick="${onclickFn}('${farm.id}')">
     <span class="letter-tick">${letter}</span>
     <span class="name">${farm.name}</span>
     <span class="meta">${country}</span>
