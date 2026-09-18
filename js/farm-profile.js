@@ -79,10 +79,10 @@ const FarmProfile = {
     overlay.innerHTML = `
       <div class="modal-box species-modal-box">
         <div class="map-modal-header">
+          <button class="icon-btn" onclick="openLandAndFarms()">← Back</button>
           <h3>${farm.name}</h3>
-          <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">✕</button>
+          <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">Main Menu</button>
         </div>
-        <button class="tab-btn" onclick="openLandAndFarms()">← All farms</button>
 
         <h4>Details</h4>
         <div class="log-row"><input type="text" placeholder="Address" value="${profile.address}" onchange="FarmProfile.updateField('address', this.value)" /></div>

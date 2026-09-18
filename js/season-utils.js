@@ -1,12 +1,12 @@
 /* =====================================================================
    SEASON HELPERS — shared by every species Overview screen. Season
    boundaries differ by species: Deer runs 1 Apr–31 Mar, Game Shooting
-   runs 1 Sep–31 Aug, everything else is calendar year.
+   runs 1 Sep–21 Feb, everything else is calendar year (1 Jan–31 Dec).
 ===================================================================== */
 
 const SEASON_TYPE_BY_SECTION = {
   deer: "aprmar",
-  game: "sepaug",
+  game: "sepfeb",
   // fox, rabbit, rats, squirrel, winged, goats, boar, clay: calendar (default)
 };
 
@@ -26,10 +26,19 @@ function seasonLabelFor(dateStr, sectionKey) {
     // Apr–Dec belongs to the season starting that year; Jan–Mar belongs to the previous year's season
     return month >= 4 ? `${year}/${String(year + 1).slice(2)}` : `${year - 1}/${String(year).slice(2)}`;
   }
-  if (type === "sepaug") {
+  if (type === "sepfeb") {
+    // Sep–Dec belongs to the season starting that year; Jan–Aug (including the
+    // 1 Jan–21 Feb tail end of the shooting season) belongs to the previous year's season
     return month >= 9 ? `${year}/${String(year + 1).slice(2)}` : `${year - 1}/${String(year).slice(2)}`;
   }
   return String(year);
+}
+
+function seasonHintFor(sectionKey) {
+  const type = seasonTypeFor(sectionKey);
+  if (type === "aprmar") return "Season year runs 1 April – 31 March.";
+  if (type === "sepfeb") return "Season year runs 1 September – 21 February.";
+  return "Season year runs 1 January – 31 December.";
 }
 
 function currentSeasonLabel(sectionKey) {

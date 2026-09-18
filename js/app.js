@@ -37,6 +37,11 @@ function tileStatFor(key) {
     const pct = clays > 0 ? Math.round((hits / clays) * 100) : 0;
     return `${pct}% hit (all time)`;
   }
+  if (key === "game") {
+    const days = window.APP_DATA.gameShooting || [];
+    const total = days.reduce((s, d) => s + (d.species || []).reduce((s2, l) => s2 + (parseInt(l.hits, 10) || 0), 0), 0);
+    return `${total} shot (all time)`;
+  }
   if (key === "land-farms") {
     return `${(window.APP_DATA.farms || []).length} properties`;
   }
@@ -90,6 +95,10 @@ function openSection(key) {
     ClayShooting.open();
     return;
   }
+  if (key === "game") {
+    GameShooting.open();
+    return;
+  }
   if (SPECIES_SECTIONS[key]) {
     SpeciesLog.open(key);
     return;
@@ -103,7 +112,7 @@ function openSection(key) {
     return;
   }
   if (key === "zeroing") {
-    Zeroing.openCaliberList();
+    Zeroing.open();
     return;
   }
   // Placeholder — Cull Plan import is built in the next pass.
@@ -121,8 +130,9 @@ function openLandAndFarms() {
   overlay.innerHTML = `
     <div class="modal-box">
       <div class="map-modal-header">
+        <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">← Back</button>
         <h3>Land and Farms</h3>
-        <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">✕</button>
+        <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">Main Menu</button>
       </div>
       <input type="text" id="farmSearchInput" placeholder="Search farms…" oninput="filterFarmList(this.value)" style="width:100%; box-sizing:border-box; padding:8px 10px; border-radius:8px; border:1px solid var(--gold-dim); background:var(--navy); color:var(--cream); margin-bottom:10px;" />
       <div class="farm-list" id="farmListItems">

@@ -28,6 +28,12 @@ const DeerLog = {
   farmTab: "overview",   // 'overview' | 'setup' | 'counts' | 'quota' | 'log' | 'dashboard'
   selectedYear: null,
   subView: "log",
+  expanded: {},   // { idx: true } — collapsed-row expand state for Cull Record Log
+
+  toggleExpand(idx) {
+    this.expanded[idx] = !this.expanded[idx];
+    this.renderFarmBody(this.findFarm(this.currentFarmId));
+  },
 
   entries() {
     window.APP_DATA.species = window.APP_DATA.species || {};
@@ -262,8 +268,9 @@ const DeerLog = {
     overlay.innerHTML = `
       <div class="modal-box species-modal-box">
         <div class="map-modal-header">
+          <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">← Back</button>
           <h3>Deer</h3>
-          <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">✕</button>
+          <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">Main Menu</button>
         </div>
         <div class="species-tabs">
           <button class="tab-btn" onclick="ReferenceInfo.seasons()">Seasons</button>
@@ -406,10 +413,10 @@ const DeerLog = {
     overlay.innerHTML = `
       <div class="modal-box species-modal-box">
         <div class="map-modal-header">
+          <button class="icon-btn" onclick="DeerLog.backToSpeciesWide()">← Back</button>
           <h3>${farm.name}</h3>
-          <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">✕</button>
+          <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">Main Menu</button>
         </div>
-        <button class="tab-btn" onclick="DeerLog.backToSpeciesWide()">← Deer</button>
         <button class="btn secondary small" style="margin:6px 0;" onclick="DeerLog.exportCullPlan()">⬇ Cull Plan Export</button>
         <div class="species-tabs">
           ${tabs.map(([key, label]) => `<button class="tab-btn ${this.farmTab === key ? "active" : ""}" onclick="DeerLog.setFarmTab('${key}')">${label}</button>`).join("")}
@@ -658,9 +665,23 @@ const DeerLog = {
           .map((p, pIdx) => `<span class="photo-thumb-wrap"><img src="${cloudinaryThumb(p, 60)}" class="zeroing-thumb" /><button class="icon-btn photo-remove" onclick="DeerLog.removePhoto(${idx},${pIdx})">✕</button></span>`)
           .join("");
         const warning = this.checkCompliance(e.farmId, e.species, e.sex, e.date);
+
+        if (!this.expanded[idx]) {
+          return `
+      <div class="log-row-card compact-row" onclick="DeerLog.toggleExpand(${idx})" style="cursor:pointer;">
+        ${warning ? `<div class="compliance-warning">⚠ ${warning}</div>` : ""}
+        <div class="log-row compact-summary">
+          <span>${e.date}</span>
+          <span>${e.sex}</span>
+          <span>${e.location || ""}</span>
+        </div>
+      </div>`;
+        }
+
         return `
       <div class="log-row-card">
         ${warning ? `<div class="compliance-warning">⚠ ${warning}</div>` : ""}
+        <div class="log-row" style="justify-content:flex-end;"><button class="icon-btn" onclick="DeerLog.toggleExpand(${idx})">▲ Collapse</button></div>
         <div class="log-row">
         <input type="date" value="${e.date}" onchange="DeerLog.updateEntry(${idx},'date',this.value)" />
         <select onchange="DeerLog.updateEntry(${idx},'species',this.value)">

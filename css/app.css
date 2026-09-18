@@ -293,6 +293,19 @@ body {
   cursor: pointer;
   padding: 4px 8px;
 }
+.map-modal-header .icon-btn {
+  font-size: 14px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.map-modal-header h3 {
+  flex: 1;
+  text-align: center;
+  padding: 0 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 /* Everything else a screen renders (tabs, body) sits below the fixed
    header, all within the one page-level scroll. */
 .modal-box > *:not(.map-modal-header) {
@@ -580,6 +593,10 @@ table.data-table select {
   background: var(--navy);
 }
 .log-row-card .log-row { border-bottom: none; padding: 4px 0; }
+.compact-row { padding: 10px; }
+.compact-summary { justify-content: space-between; padding: 0; }
+.compact-summary span:nth-child(2) { color: var(--gold); flex: 1; text-align: center; }
+.compact-summary span:last-child { text-align: right; color: var(--cream); opacity: 0.85; }
 .photo-row { align-items: center; flex-wrap: wrap; gap: 8px; }
 .photo-thumb-wrap { position: relative; display: inline-block; }
 .photo-remove {

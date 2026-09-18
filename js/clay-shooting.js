@@ -1,50 +1,50 @@
 /* =====================================================================
-   CLAY SHOOTING — structurally different from every other section:
-   it's a hit-percentage tracker (clays thrown vs hits), not species
-   counts. Overview shows all-time and per-season % hit; Locations
-   lists "grounds" (the same farms list, just used as shooting grounds
-   here); each ground's own page has its own %hit stats plus the
-   Records table (Date, Firearm, Clays, Hits, Photos, Notes).
+   CLAY SHOOTING — a hit-percentage tracker (clays thrown vs hits), not
+   species counts. NOT tied to Land and Farms — grounds are a separate
+   "remembered dropdown" list of names typed here (Ben returns to the
+   same grounds repeatedly), not farm boundaries. No Locations tab, no
+   drilling — Overview stats sit above one flat Records list.
 ===================================================================== */
 
 const ClayShooting = {
-  topTab: "overview",     // 'overview' | 'locations' — species-wide only
-  currentFarmId: null,
-  farmSubTab: "overview", // 'overview' | 'log', once drilled into a ground
   selectedYear: null,
-  subView: "log",
 
   entries() {
     window.APP_DATA.clay = window.APP_DATA.clay || [];
     return window.APP_DATA.clay;
   },
 
-  scopedEntries() {
-    if (!this.currentFarmId) return this.entries();
-    return this.entries().filter((e) => (e.farmId || "other") === this.currentFarmId);
+  // Remembered grounds — a plain list of names typed before, separate
+  // from Land and Farms. New ones typed via "+ Add new ground…" persist here.
+  grounds() {
+    window.APP_DATA.clayGrounds = window.APP_DATA.clayGrounds || [];
+    return window.APP_DATA.clayGrounds;
   },
 
-  farmName(farmId) {
-    if (!farmId || farmId === "other") return "Other";
-    return (window.APP_DATA.farms || []).find((f) => f.id === farmId)?.name || "Other";
+  addGround(name) {
+    const trimmed = (name || "").trim();
+    if (!trimmed) return null;
+    const grounds = this.grounds();
+    if (!grounds.includes(trimmed)) grounds.push(trimmed);
+    return trimmed;
   },
 
   open() {
-    this.topTab = "overview";
-    this.currentFarmId = null;
-    this.farmSubTab = "overview";
     this.selectedYear = currentSeasonLabel("clay");
     this.render();
   },
 
   addEntry() {
-    const farms = window.APP_DATA.farms || [];
+    const grounds = this.grounds();
     this.entries().push({
       date: new Date().toISOString().slice(0, 10),
-      farmId: this.currentFarmId || farms[0]?.id || "other",
+      location: grounds[0] || "",
       firearm: "",
       clays: 0,
       hits: 0,
+      what3words: "",
+      lat: null,
+      lng: null,
       photos: [],
       notes: "",
     });
@@ -62,6 +62,17 @@ const ClayShooting = {
     this.saveAndRender();
   },
 
+  handleLocationChange(idx, selectEl) {
+    if (selectEl.value === "__add_new__") {
+      const name = prompt("New ground name:");
+      const added = this.addGround(name);
+      if (added) this.updateEntry(idx, "location", added);
+      else this.render();
+      return;
+    }
+    this.updateEntry(idx, "location", selectEl.value);
+  },
+
   handleFirearmChange(idx, selectEl) {
     if (selectEl.value === "__add_new__") {
       const added = Firearms.addInline();
@@ -70,6 +81,17 @@ const ClayShooting = {
       return;
     }
     this.updateEntry(idx, "firearm", selectEl.value);
+  },
+
+  captureW3w(idx) {
+    LocationMatch.captureLocation((loc) => {
+      if (!loc) return;
+      const entry = this.entries()[idx];
+      entry.what3words = loc.what3words;
+      entry.lat = loc.lat;
+      entry.lng = loc.lng;
+      this.saveAndRender();
+    });
   },
 
   addPhoto(idx, inputEl) {
@@ -94,18 +116,7 @@ const ClayShooting = {
 
   saveAndRender() { persistData(); this.render(); },
 
-  setTopTab(tab) { this.topTab = tab; this.render(); },
   setYear(year) { this.selectedYear = year; this.render(); },
-  drillIntoFarm(farmId) {
-    this.currentFarmId = farmId;
-    document.getElementById("modalOverlay").classList.add("hidden");
-    this.render();
-  },
-  backToSpeciesWide() {
-    this.currentFarmId = null;
-    this.topTab = "overview";
-    this.render();
-  },
 
   statsFor(entries) {
     const clays = entries.reduce((s, e) => s + (parseInt(e.clays, 10) || 0), 0);
@@ -116,19 +127,13 @@ const ClayShooting = {
 
   render() {
     const overlay = document.getElementById("modalOverlay");
-    const inFarm = !!this.currentFarmId;
-
     overlay.innerHTML = `
       <div class="modal-box species-modal-box">
         <div class="map-modal-header">
-          <h3>Clay Shooting${inFarm ? " — " + this.farmName(this.currentFarmId) : ""}</h3>
-          <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">✕</button>
+          <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">← Back</button>
+          <h3>Clay Shooting</h3>
+          <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">Main Menu</button>
         </div>
-        ${inFarm ? `<button class="tab-btn" onclick="ClayShooting.backToSpeciesWide()">← All grounds</button>` : `
-        <div class="species-tabs">
-          <button class="tab-btn ${this.topTab === "overview" ? "active" : ""}" onclick="ClayShooting.setTopTab('overview')">Overview</button>
-          <button class="tab-btn ${this.topTab === "locations" ? "active" : ""}" onclick="ClayShooting.setTopTab('locations')">Locations</button>
-        </div>`}
         <div id="clayBody"></div>
       </div>`;
     overlay.classList.remove("hidden");
@@ -136,51 +141,16 @@ const ClayShooting = {
   },
 
   renderBody() {
-    const body = document.getElementById("clayBody");
-    const inFarm = !!this.currentFarmId;
-    if (inFarm) {
-      body.innerHTML = this.renderGroundPage();
-    } else if (this.topTab === "locations") {
-      body.innerHTML = this.renderLocationsList();
-    } else {
-      body.innerHTML = this.renderOverview();
-    }
-  },
-
-  renderLocationsList() {
-    return renderLocationsListHtml("ClayShooting.drillIntoFarm", this.entries().some((e) => !e.farmId || e.farmId === "other")) +
-      `<p class="hint">Clay shooting locations are the same list as Land and Farms.</p>`;
+    document.getElementById("clayBody").innerHTML = this.renderOverview() + this.renderTable();
   },
 
   renderOverview() {
-    const scoped = this.scopedEntries();
-    const years = seasonYearsFor(scoped, "clay");
+    const entries = this.entries();
+    const years = seasonYearsFor(entries, "clay");
     if (!years.includes(this.selectedYear)) this.selectedYear = years[0];
-    const yearEntries = scoped.filter((e) => seasonLabelFor(e.date, "clay") === this.selectedYear);
+    const yearEntries = entries.filter((e) => seasonLabelFor(e.date, "clay") === this.selectedYear);
 
-    const allTime = this.statsFor(scoped);
-    const season = this.statsFor(yearEntries);
-
-    return `
-      <div class="stat-cards">
-        <div class="stat-card"><div class="num">${allTime.pct}%</div><div class="lbl">Overall % hit (all time)</div></div>
-      </div>
-      <div class="species-tabs" style="margin-top:10px;">${renderYearTabs(years, this.selectedYear, "clay", "ClayShooting.setYear")}</div>
-      <div class="stat-cards" style="margin-top:10px;">
-        <div class="stat-card"><div class="num">${season.pct}%</div><div class="lbl">% hit this season</div></div>
-        <div class="stat-card"><div class="num">${season.clays}</div><div class="lbl">Clays this season</div></div>
-        <div class="stat-card"><div class="num">${season.hits}</div><div class="lbl">Hits this season</div></div>
-      </div>
-      <p class="hint">Open a ground under Locations to add or view Records.</p>`;
-  },
-
-  // One continuous page per ground: stats -> Records, no sub-tab.
-  renderGroundPage() {
-    const scoped = this.scopedEntries();
-    const years = seasonYearsFor(scoped, "clay");
-    if (!years.includes(this.selectedYear)) this.selectedYear = years[0];
-    const yearEntries = scoped.filter((e) => seasonLabelFor(e.date, "clay") === this.selectedYear);
-    const allTime = this.statsFor(scoped);
+    const allTime = this.statsFor(entries);
     const season = this.statsFor(yearEntries);
 
     return `
@@ -192,11 +162,11 @@ const ClayShooting = {
       <div class="species-tabs" style="margin-top:10px;">${renderYearTabs(years, this.selectedYear, "clay", "ClayShooting.setYear")}</div>
       <div class="stat-cards" style="margin-top:10px;">
         <div class="stat-card"><div class="num">${season.pct}%</div><div class="lbl">% hit this season</div></div>
+        <div class="stat-card"><div class="num">${season.clays}</div><div class="lbl">Clays this season</div></div>
+        <div class="stat-card"><div class="num">${season.hits}</div><div class="lbl">Hits this season</div></div>
       </div>
-
       <div class="section-title" style="margin-top:18px;"><h4>Records</h4></div>
       <button class="icon-btn" onclick="ClayShooting.openFieldSettings()" title="Choose which fields show">⚙</button>
-      <div style="margin-top:8px;">${this.renderTable()}</div>
       <button class="btn small" style="margin-top:10px;" onclick="ClayShooting.addEntry()">+ Add entry</button>`;
   },
 
@@ -210,11 +180,11 @@ const ClayShooting = {
   },
 
   renderTable() {
-    const entries = this.scopedEntries();
+    const entries = this.entries();
+    const grounds = this.grounds();
     const on = (f) => isFieldOn("clay", f);
     const rows = entries
-      .map((e) => {
-        const idx = this.entries().indexOf(e);
+      .map((e, idx) => {
         const photos = e.photos || [];
         const photoThumbs = photos
           .map((p, pIdx) => `<span class="photo-thumb-wrap"><img src="${cloudinaryThumb(p, 50)}" class="zeroing-thumb" /><button class="icon-btn photo-remove" onclick="ClayShooting.removePhoto(${idx},${pIdx})">✕</button></span>`)
@@ -224,17 +194,28 @@ const ClayShooting = {
       <div class="log-row-card">
         <div class="log-row">
           <input type="date" value="${e.date}" onchange="ClayShooting.updateEntry(${idx},'date',this.value)" />
-          ${on("firearm") ? `<select onchange="ClayShooting.handleFirearmChange(${idx}, this)">
-            <option value="" ${!e.firearm ? "selected" : ""}>Firearm…</option>
-            ${Firearms.list().map((f) => `<option ${f === e.firearm ? "selected" : ""}>${f}</option>`).join("")}
-            <option value="__add_new__">+ Add new firearm…</option>
-          </select>` : ""}
+          <select onchange="ClayShooting.handleLocationChange(${idx}, this)">
+            <option value="" ${!e.location ? "selected" : ""}>Ground…</option>
+            ${grounds.map((g) => `<option ${g === e.location ? "selected" : ""}>${g}</option>`).join("")}
+            <option value="__add_new__">+ Add new ground…</option>
+          </select>
         </div>
         <div class="log-row">
           <input type="number" min="0" placeholder="Clays" value="${e.clays}" onchange="ClayShooting.updateEntry(${idx},'clays',this.value)" style="width:80px;" />
           <input type="number" min="0" placeholder="Hits" value="${e.hits}" onchange="ClayShooting.updateEntry(${idx},'hits',this.value)" style="width:80px;" />
           <span class="hint" style="margin:0;">${pct}% hit</span>
         </div>
+        <div class="log-row">
+          <input type="text" placeholder="///what3words" value="${e.what3words || ""}" onchange="ClayShooting.updateEntry(${idx},'what3words',this.value)" />
+          <button class="btn small ghost" onclick="ClayShooting.captureW3w(${idx})">📍 Auto</button>
+        </div>
+        ${on("firearm") ? `<div class="log-row">
+          <select onchange="ClayShooting.handleFirearmChange(${idx}, this)">
+            <option value="" ${!e.firearm ? "selected" : ""}>Firearm…</option>
+            ${Firearms.list().map((f) => `<option ${f === e.firearm ? "selected" : ""}>${f}</option>`).join("")}
+            <option value="__add_new__">+ Add new firearm…</option>
+          </select>
+        </div>` : ""}
         ${on("notes") ? `<div class="log-row">
           <input type="text" placeholder="Notes" value="${e.notes || ""}" onchange="ClayShooting.updateEntry(${idx},'notes',this.value)" />
         </div>` : ""}
@@ -248,6 +229,6 @@ const ClayShooting = {
       </div>`;
       })
       .join("");
-    return rows || '<p class="hint">No entries yet — tap "+ Add entry" above to log a round.</p>';
+    return `<div style="margin-top:8px;">${rows || '<p class="hint">No entries yet — tap "+ Add entry" above to log a round.</p>'}</div>`;
   },
 };

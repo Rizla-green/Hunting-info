@@ -1,109 +1,132 @@
 /* =====================================================================
-   ZEROING
-   Top level: list of calibers. Tap one → history of sessions (date order),
-   with a + Add button. Each session: target photo, "My Location" pin
-   (GPS with manual fallback + retry), a separate user-given location
-   name, caliber, distance zeroed, shots fired, scope adjusted (yes/no).
-   Weather/wind auto-fetches for the pinned location.
-   Ballistics (chart-based vs calculated trajectory) is intentionally
-   NOT built yet — Ben is supplying that data separately.
+   ZEROING — flattened, no caliber grouping: one single list of
+   sessions. Rifle comes from the shared Firearms list (replacing the
+   old free-text caliber). Location uses the same "remembered dropdown"
+   pattern as Clay Shooting — its own separate list, not tied to Land
+   and Farms or shared with Clay Shooting's grounds. What3words auto-pin
+   via the shared LocationMatch module. Adjustment is a Yes/No toggle;
+   choosing Yes reveals a Notes popup for the adjustment detail.
+   Weather auto-fetch and ballistics are intentionally NOT built —
+   ballistics stays deferred until Ben supplies data.
 ===================================================================== */
 
 const Zeroing = {
-  currentCaliber: null,
+  notesPopupIdx: null,
 
-  data() {
-    window.APP_DATA.zeroing = window.APP_DATA.zeroing || {};
-    return window.APP_DATA.zeroing; // { [caliber]: [session, session, ...] }
+  sessions() {
+    window.APP_DATA.zeroing = window.APP_DATA.zeroing || [];
+    return window.APP_DATA.zeroing;
   },
 
-  calibers() {
-    return Object.keys(this.data());
+  // Remembered zeroing locations — separate list from Clay Shooting's grounds.
+  locations() {
+    window.APP_DATA.zeroingLocations = window.APP_DATA.zeroingLocations || [];
+    return window.APP_DATA.zeroingLocations;
   },
 
-  openCaliberList() {
-    const overlay = document.getElementById("modalOverlay");
-    const calibers = this.calibers();
-    overlay.innerHTML = `
-      <div class="modal-box">
-        <div class="map-modal-header">
-          <h3>Zeroing</h3>
-          <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">✕</button>
-        </div>
-        <div class="farm-list">
-          ${calibers.map((c) => `<button class="btn secondary" onclick="Zeroing.openCaliber('${c}')">${c} <span class="grouped-count">(${this.data()[c].length})</span></button>`).join("")}
-        </div>
-        <button class="btn small" style="margin-top:12px;" onclick="Zeroing.addCaliber()">+ Add caliber</button>
-      </div>`;
-    overlay.classList.remove("hidden");
+  addLocation(name) {
+    const trimmed = (name || "").trim();
+    if (!trimmed) return null;
+    const locations = this.locations();
+    if (!locations.includes(trimmed)) locations.push(trimmed);
+    return trimmed;
   },
 
-  addCaliber() {
-    const name = prompt("Caliber (e.g. .243, 6.5 Creedmoor):");
-    if (!name) return;
-    if (!this.data()[name]) this.data()[name] = [];
-    this.saveAndRender();
-    this.openCaliberList();
-  },
-
-  openCaliber(caliber) {
-    this.currentCaliber = caliber;
+  open() {
     this.render();
   },
 
   addSession() {
-    const sessions = this.data()[this.currentCaliber];
-    sessions.push({
+    this.sessions().push({
       date: new Date().toISOString().slice(0, 10),
-      photo: null,
+      rifle: "",
+      location: this.locations()[0] || "",
+      what3words: "",
       lat: null,
       lng: null,
-      locationName: "",
       distance: "",
       shots: 1,
-      scopeAdjusted: false,
-      weather: null, // filled by fetchWeatherFor() once a pin is set
+      adjusted: false,
+      adjustmentNotes: "",
+      photos: [],
     });
     this.saveAndRender();
   },
 
   removeSession(idx) {
     if (!confirm("Remove this session? This can't be undone.")) return;
-    this.data()[this.currentCaliber].splice(idx, 1);
+    this.sessions().splice(idx, 1);
     this.saveAndRender();
   },
 
   updateSession(idx, field, value) {
-    this.data()[this.currentCaliber][idx][field] = value;
+    this.sessions()[idx][field] = value;
     this.saveAndRender();
   },
 
-  // "Use my current location" — GPS first, with a manual-pin fallback and
-  // a retry button so a failed GPS read doesn't dead-end the flow.
-  useCurrentLocation(idx) {
-    if (!navigator.geolocation) {
-      alert("This device doesn't support GPS location — place the pin manually instead.");
+  handleRifleChange(idx, selectEl) {
+    if (selectEl.value === "__add_new__") {
+      const added = Firearms.addInline();
+      if (added) this.updateSession(idx, "rifle", added);
+      else this.render();
       return;
     }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const session = this.data()[this.currentCaliber][idx];
-        session.lat = pos.coords.latitude;
-        session.lng = pos.coords.longitude;
-        this.fetchWeatherFor(session);
-        this.saveAndRender();
-      },
-      () => {
-        alert("Couldn't get your location — check location permissions and try again, or place the pin manually on the map.");
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
+    this.updateSession(idx, "rifle", selectEl.value);
   },
 
-  // Placeholder weather fetch — wired to a real weather API call once the
-  // Zeroing screens are connected to the app's live data layer.
-  fetchWeatherFor(session) {
-    session.weather = { note: "Weather/wind auto-fetch wires up once this screen is connected live." };
+  handleLocationChange(idx, selectEl) {
+    if (selectEl.value === "__add_new__") {
+      const name = prompt("New location name:");
+      const added = this.addLocation(name);
+      if (added) this.updateSession(idx, "location", added);
+      else this.render();
+      return;
+    }
+    this.updateSession(idx, "location", selectEl.value);
+  },
+
+  toggleAdjusted(idx, checked) {
+    this.sessions()[idx].adjusted = checked;
+    this.saveAndRender();
+    if (checked) this.openAdjustmentNotes(idx);
+  },
+
+  // Adjustment notes open as their own popup screen (per spec), with a
+  // "Done" button returning to the flat Zeroing list rather than closing
+  // everything, matching the app's Back/Main Menu navigation elsewhere.
+  openAdjustmentNotes(idx) {
+    this.notesPopupIdx = idx;
+    const session = this.sessions()[idx];
+    const overlay = document.getElementById("modalOverlay");
+    overlay.innerHTML = `
+      <div class="modal-box species-modal-box">
+        <div class="map-modal-header">
+          <button class="icon-btn" onclick="Zeroing.closeAdjustmentNotes()">← Back</button>
+          <h3>Adjustment Notes</h3>
+          <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">Main Menu</button>
+        </div>
+        <div class="log-row">
+          <textarea rows="6" style="width:100%; box-sizing:border-box; padding:8px; border-radius:8px; border:1px solid var(--gold-dim); background:var(--navy); color:var(--cream);" placeholder="What did you adjust, and by how much?" onchange="Zeroing.updateSession(${idx},'adjustmentNotes',this.value)">${session.adjustmentNotes || ""}</textarea>
+        </div>
+        <button class="btn small" onclick="Zeroing.closeAdjustmentNotes()">Done</button>
+      </div>`;
+    overlay.classList.remove("hidden");
+  },
+
+  closeAdjustmentNotes() {
+    this.notesPopupIdx = null;
+    this.render();
+  },
+
+  captureW3w(idx) {
+    LocationMatch.captureLocation((loc) => {
+      if (!loc) return;
+      const session = this.sessions()[idx];
+      session.what3words = loc.what3words;
+      session.lat = loc.lat;
+      session.lng = loc.lng;
+      this.saveAndRender();
+    });
   },
 
   addPhoto(idx, inputEl) {
@@ -111,34 +134,37 @@ const Zeroing = {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
-      const session = this.data()[this.currentCaliber][idx];
-      session.photo = reader.result;
+      const session = this.sessions()[idx];
+      session.photos = session.photos || [];
+      session.photos.push(reader.result);
+      const photoIdx = session.photos.length - 1;
       this.saveAndRender();
-      // Uploads to Cloudinary in the background; if offline, the local
-      // copy just displayed stays in place until the next retry — see
-      // cloudinary-upload.js.
-      uploadPhotoToCloudinary(session.photo).then((url) => {
-        if (url) { session.photo = url; persistData(); }
-      });
+      uploadAndReplace(session.photos, photoIdx);
     };
     reader.readAsDataURL(file);
   },
+  removePhoto(idx, photoIdx) {
+    if (!confirm("Remove this photo? This can't be undone.")) return;
+    this.sessions()[idx].photos.splice(photoIdx, 1);
+    this.saveAndRender();
+  },
 
   saveAndRender() {
-    // TODO: Firestore write, then triggerBackup(window.APP_DATA) for Dropbox.
-    // Cloudinary upload replaces the raw data-URL photo storage once wired.
     persistData();
-    if (this.currentCaliber) this.render();
+    if (this.notesPopupIdx === null) this.render();
   },
 
   render() {
-    const sessions = this.data()[this.currentCaliber].slice().sort((a, b) => a.date.localeCompare(b.date));
+    const sessions = this.sessions().slice().sort((a, b) => a.date.localeCompare(b.date));
+    const rifles = Firearms.list();
+    const locations = this.locations();
     const overlay = document.getElementById("modalOverlay");
     overlay.innerHTML = `
       <div class="modal-box species-modal-box">
         <div class="map-modal-header">
-          <h3>Zeroing — ${this.currentCaliber}</h3>
-          <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">✕</button>
+          <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">← Back</button>
+          <h3>Zeroing</h3>
+          <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">Main Menu</button>
         </div>
         <div id="zeroingBody"></div>
       </div>`;
@@ -146,32 +172,54 @@ const Zeroing = {
 
     const body = document.getElementById("zeroingBody");
     const rows = sessions
-      .map((s, idx) => {
-        const hasPin = s.lat != null;
+      .map((s) => {
+        const idx = this.sessions().indexOf(s);
+        const photos = s.photos || [];
+        const photoThumbs = photos
+          .map((p, pIdx) => `<span class="photo-thumb-wrap"><img src="${cloudinaryThumb(p, 60)}" class="zeroing-thumb" /><button class="icon-btn photo-remove" onclick="Zeroing.removePhoto(${idx},${pIdx})">✕</button></span>`)
+          .join("");
         return `
-      <div class="zeroing-session">
+      <div class="log-row-card">
         <div class="log-row">
           <input type="date" value="${s.date}" onchange="Zeroing.updateSession(${idx},'date',this.value)" />
-          <input type="text" placeholder="Location name" value="${s.locationName || ""}" onchange="Zeroing.updateSession(${idx},'locationName',this.value)" />
-          <input type="number" placeholder="Distance (m)" value="${s.distance}" onchange="Zeroing.updateSession(${idx},'distance',this.value)" style="width:100px;" />
-          <input type="number" min="1" placeholder="Shots" value="${s.shots}" onchange="Zeroing.updateSession(${idx},'shots',this.value)" style="width:70px;" />
-          <label style="display:flex;align-items:center;gap:4px;font-size:12px;">
-            <input type="checkbox" ${s.scopeAdjusted ? "checked" : ""} onchange="Zeroing.updateSession(${idx},'scopeAdjusted',this.checked)" />
-            Scope adjusted
+          <select onchange="Zeroing.handleRifleChange(${idx}, this)">
+            <option value="" ${!s.rifle ? "selected" : ""}>Rifle…</option>
+            ${rifles.map((f) => `<option ${f === s.rifle ? "selected" : ""}>${f}</option>`).join("")}
+            <option value="__add_new__">+ Add new firearm…</option>
+          </select>
+        </div>
+        <div class="log-row">
+          <select onchange="Zeroing.handleLocationChange(${idx}, this)">
+            <option value="" ${!s.location ? "selected" : ""}>Location…</option>
+            ${locations.map((l) => `<option ${l === s.location ? "selected" : ""}>${l}</option>`).join("")}
+            <option value="__add_new__">+ Add new location…</option>
+          </select>
+        </div>
+        <div class="log-row">
+          <input type="text" placeholder="///what3words" value="${s.what3words || ""}" onchange="Zeroing.updateSession(${idx},'what3words',this.value)" />
+          <button class="btn small ghost" onclick="Zeroing.captureW3w(${idx})">📍 Auto</button>
+        </div>
+        <div class="log-row">
+          <input type="number" placeholder="Distance zeroed (m)" value="${s.distance}" onchange="Zeroing.updateSession(${idx},'distance',this.value)" style="width:140px;" />
+          <input type="number" min="1" placeholder="Shots fired" value="${s.shots}" onchange="Zeroing.updateSession(${idx},'shots',this.value)" style="width:100px;" />
+        </div>
+        <div class="log-row">
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;">
+            <input type="checkbox" ${s.adjusted ? "checked" : ""} onchange="Zeroing.toggleAdjusted(${idx}, this.checked)" />
+            Adjustment made
           </label>
-          <button class="icon-btn" onclick="Zeroing.removeSession(${idx})">✕</button>
+          ${s.adjusted ? `<button class="btn small ghost" onclick="Zeroing.openAdjustmentNotes(${idx})">📝 Adjustment notes${s.adjustmentNotes ? " ✓" : ""}</button>` : ""}
         </div>
-        <div class="zeroing-location-row">
-          <button class="btn ghost small" onclick="Zeroing.useCurrentLocation(${idx})">📍 ${hasPin ? "Update" : "Use"} my location</button>
-          <span class="hint" style="margin:0;">${hasPin ? `Pinned (${s.lat.toFixed(5)}, ${s.lng.toFixed(5)})` : "No pin set — place manually or use current location"}</span>
-        </div>
-        <div class="zeroing-photo-row">
-          <input type="file" accept="image/*" capture="environment" onchange="Zeroing.addPhoto(${idx}, this)" />
-          ${s.photo ? `<img src="${cloudinaryThumb(s.photo, 96)}" class="zeroing-thumb" />` : ""}
+        <div class="log-row photo-row">
+          ${photoThumbs}
+          <label class="btn small ghost" style="cursor:pointer;">+ Photo
+            <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="Zeroing.addPhoto(${idx}, this)" />
+          </label>
+          <button class="icon-btn" onclick="Zeroing.removeSession(${idx})" style="margin-left:auto;">✕ Remove entry</button>
         </div>
       </div>`;
       })
       .join("");
-    body.innerHTML = `${rows || '<p class="hint">No sessions yet for this caliber.</p>'}<button class="btn small" onclick="Zeroing.addSession()">+ Add session</button>`;
+    body.innerHTML = `${rows || '<p class="hint">No sessions yet.</p>'}<button class="btn small" style="margin-top:10px;" onclick="Zeroing.addSession()">+ Add session</button>`;
   },
 };

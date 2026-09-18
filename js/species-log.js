@@ -27,7 +27,7 @@
    tiles directly (not a separate popup).
 ===================================================================== */
 
-const GAME_BIRD_LIST = ["Pheasant", "Mallard", "Wigeon", "French partridge", "English partridge", "Canada goose", "Greylag goose", "Pinkfoot goose", "Egyptian goose", "Snipe", "Woodcock"];
+const GAME_BIRD_LIST = ["Pheasant", "Mallard", "Wigeon", "French partridge", "English partridge", "Canada goose", "Greylag goose", "Pinkfoot goose", "Egyptian goose", "Snipe", "Woodcock", "Teal"];
 const WINGED_VERMIN_LIST = ["Crow", "Rook", "Jackdaw", "Magpie", "Pigeon", "Jay"];
 const SQUIRREL_LIST = ["Male", "Female"];
 const FOX_LIST = ["Dog", "Vixen", "Dog cub", "Vixen cub"];
@@ -38,39 +38,18 @@ const SPECIES_SECTIONS = {
   rats:    { title: "Rats",          categories: ["Rat"] },
   squirrel:{ title: "Squirrels",     categories: SQUIRREL_LIST },
   winged:  { title: "Winged Vermin", categories: WINGED_VERMIN_LIST },
-  game:    { title: "Game Shooting", categories: GAME_BIRD_LIST },
   goats:   { title: "Goats",         categories: ["Billy", "Nanny", "Kid"] },
   boar:    { title: "Boar",          categories: ["Boar", "Sow", "Piglet"] },
 };
 
-// Category options offered in the add-entry dropdown — Game Shooting
-// gets the combined list; every other section just gets its own.
 function categoryOptionsFor(sectionKey) {
-  if (sectionKey === "game") {
-    return [
-      ...GAME_BIRD_LIST,
-      ...WINGED_VERMIN_LIST,
-      ...SQUIRREL_LIST.map((c) => `Squirrel (${c})`),
-      ...FOX_LIST.map((c) => `Fox (${c})`),
-    ];
-  }
   return SPECIES_SECTIONS[sectionKey].categories;
 }
 
-// A borrowed Game Shooting category ("Fox (Dog)", or a plain winged-bird
-// name) maps back to the section its tally actually belongs to.
-function homeSectionForGameCategory(category) {
-  if (WINGED_VERMIN_LIST.includes(category)) return "winged";
-  if (category.startsWith("Squirrel (")) return "squirrel";
-  if (category.startsWith("Fox (")) return "fox";
-  return null; // one of Game Shooting's own birds
-}
-function unwrapBorrowedCategory(category) {
-  const match = category.match(/^\w+ \((.+)\)$/);
-  return match ? match[1] : category;
-}
-
 const W3W_SPECIES = ["deer", "fox", "goats", "boar", "squirrel"];
+
+const COMPACT_ROW_SECTIONS = ["fox", "boar", "squirrel", "goats"];
+const FLAT_SECTIONS = ["rabbit", "rats", "winged"]; // no Locations/farm-drilling — one flat outing list
 
 const SpeciesLog = {
   currentSection: null,
@@ -78,6 +57,13 @@ const SpeciesLog = {
   currentFarmId: null,
   selectedYear: null,
   subView: "log",
+  expanded: {},   // { "sectionKey:idx": true } — collapsed-row expand state, compact sections only
+
+  toggleExpand(idx) {
+    const key = `${this.currentSection}:${idx}`;
+    this.expanded[key] = !this.expanded[key];
+    this.renderBody();
+  },
 
   open(sectionKey) {
     this.currentSection = sectionKey;
@@ -92,27 +78,6 @@ const SpeciesLog = {
     window.APP_DATA.species = window.APP_DATA.species || {};
     window.APP_DATA.species[this.currentSection] = window.APP_DATA.species[this.currentSection] || [];
     return window.APP_DATA.species[this.currentSection];
-  },
-
-  // Entries actually attributed to this section's own tally: its own
-  // log, PLUS (for fox/squirrel/winged) any Game Shooting entries
-  // logged under a matching borrowed category.
-  attributedEntries() {
-    let list = this.entries().map((e) => ({ ...e, category: e.category }));
-    if (["fox", "squirrel", "winged"].includes(this.currentSection)) {
-      const gameEntries = window.APP_DATA.species?.game || [];
-      const borrowed = gameEntries
-        .filter((e) => homeSectionForGameCategory(e.category) === this.currentSection)
-        .map((e) => ({ ...e, category: unwrapBorrowedCategory(e.category) }));
-      list = [...list, ...borrowed];
-    }
-    return list;
-  },
-
-  scopedAttributedEntries() {
-    const list = this.attributedEntries();
-    if (!this.currentFarmId) return list;
-    return list.filter((e) => (e.farmId || "other") === this.currentFarmId);
   },
 
   scopedEntries() {
@@ -132,6 +97,7 @@ const SpeciesLog = {
       date: new Date().toISOString().slice(0, 10),
       ampm: "AM",
       farmId: this.currentFarmId || farms[0]?.id || "other",
+      locationText: "",   // free-typed location, used when farmId === "other" (flat sections only)
       area: "",
       what3words: "",
       lat: null,
@@ -162,6 +128,17 @@ const SpeciesLog = {
       this.entries().push(entry);
       this.saveAndRender();
       uploadAndReplace(entry.photos, 0);
+    });
+  },
+
+  captureW3w(idx) {
+    LocationMatch.captureLocation((loc) => {
+      if (!loc) return;
+      const entry = this.entries()[idx];
+      entry.what3words = loc.what3words;
+      entry.lat = loc.lat;
+      entry.lng = loc.lng;
+      this.saveAndRender();
     });
   },
 
@@ -262,16 +239,15 @@ const SpeciesLog = {
     overlay.innerHTML = `
       <div class="modal-box species-modal-box">
         <div class="map-modal-header">
+          <button class="icon-btn" onclick="${inFarm ? "SpeciesLog.backToSpeciesWide()" : "document.getElementById('modalOverlay').classList.add('hidden')"}">← Back</button>
           <h3>${def.title}${inFarm ? " — " + this.farmName(this.currentFarmId) : ""}</h3>
-          <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">✕</button>
+          <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">Main Menu</button>
         </div>
-        ${inFarm ? `<button class="tab-btn" onclick="SpeciesLog.backToSpeciesWide()">← ${def.title}</button>` : ""}
         <div class="species-tabs">
           ${this.currentSection === "fox" ? `<button class="tab-btn" onclick="ReferenceInfo.foxBoarLifecycle('Fox')">🦊 Lifecycle chart</button>` : ""}
           ${this.currentSection === "boar" ? `<button class="tab-btn" onclick="ReferenceInfo.foxBoarLifecycle('Wild boar')">🐗 Lifecycle chart</button><button class="tab-btn" onclick="ReferenceInfo.boarDisease()">🦠 Boar Disease</button>` : ""}
-          ${this.currentSection === "game" ? `<button class="tab-btn" onclick="ReferenceInfo.gameSeasons()">📅 View game seasons</button>` : ""}
         </div>
-        ${!inFarm ? `<div class="species-tabs">
+        ${!inFarm && !FLAT_SECTIONS.includes(this.currentSection) ? `<div class="species-tabs">
           <button class="tab-btn ${this.topTab === "overview" ? "active" : ""}" onclick="SpeciesLog.setTopTab('overview')">Overview</button>
           <button class="tab-btn ${this.topTab === "locations" ? "active" : ""}" onclick="SpeciesLog.setTopTab('locations')">Locations</button>
         </div>` : ""}
@@ -283,6 +259,7 @@ const SpeciesLog = {
 
   renderBody() {
     const body = document.getElementById("speciesLogBody");
+    if (FLAT_SECTIONS.includes(this.currentSection)) { body.innerHTML = this.renderOverview() + this.renderFlatPestLog(); return; }
     if (this.currentFarmId) { body.innerHTML = this.renderFarmPage(); return; }
     body.innerHTML = this.topTab === "locations" ? this.renderLocationsList() : this.renderOverview();
   },
@@ -308,7 +285,7 @@ const SpeciesLog = {
 
   // ---------- Overview (species-wide or per-farm — identical shape) ----------
   renderOverview() {
-    const scoped = this.attributedEntries();
+    const scoped = this.entries();
     const years = seasonYearsFor(scoped, this.currentSection);
     if (!years.includes(this.selectedYear)) this.selectedYear = years[0];
     const allTimeTotal = scoped.reduce((sum, e) => sum + (parseInt(e.shots, 10) || 1), 0);
@@ -317,13 +294,13 @@ const SpeciesLog = {
 
     let html = `
       ${renderStatCards([{ value: allTimeTotal, label: "Overall total (all years)" }])}
-      <p class="hint">Season year runs 1 April – 31 March.</p>
+      <p class="hint">${seasonHintFor(this.currentSection)}</p>
       <div class="species-tabs">${renderYearTabs(years, this.selectedYear, this.currentSection, "SpeciesLog.setYear")}</div>
       ${renderStatCards([{ value: grandTotal, label: "Total — season " + this.selectedYear }])}
       <div style="margin-top:10px;">${renderCategoryTable(totals, grandTotal)}</div>`;
 
     if (this.currentSection === "winged") html += this.renderGeneralLicencesBlock();
-    if (!this.currentFarmId) html += `<p class="hint">Open a location under Locations to add or view entries.</p>`;
+    if (!this.currentFarmId && !FLAT_SECTIONS.includes(this.currentSection)) html += `<p class="hint">Open a location under Locations to add or view entries.</p>`;
     return html;
   },
 
@@ -347,7 +324,7 @@ const SpeciesLog = {
 
   // ---------- Farm page: ONE continuous page (stats -> table -> Records) ----------
   renderFarmPage() {
-    const scoped = this.scopedAttributedEntries();
+    const scoped = this.scopedEntries();
     const years = seasonYearsFor(scoped, this.currentSection);
     if (!years.includes(this.selectedYear)) this.selectedYear = years[0];
     const allTimeTotal = scoped.reduce((sum, e) => sum + (parseInt(e.shots, 10) || 1), 0);
@@ -387,6 +364,7 @@ const SpeciesLog = {
     const categoryOptions = categoryOptionsFor(this.currentSection);
     const w3wEnabled = W3W_SPECIES.includes(this.currentSection);
     const on = (f) => isFieldOn(this.currentSection, f);
+    const isCompact = COMPACT_ROW_SECTIONS.includes(this.currentSection);
     const rows = entries
       .map((e) => {
         const idx = this.entries().indexOf(e);
@@ -394,8 +372,23 @@ const SpeciesLog = {
         const photoThumbs = photos
           .map((p, pIdx) => `<span class="photo-thumb-wrap"><img src="${cloudinaryThumb(p, 60)}" class="zeroing-thumb" /><button class="icon-btn photo-remove" onclick="SpeciesLog.removePhoto(${idx},${pIdx})">✕</button></span>`)
           .join("");
+
+        const isExpanded = !isCompact || this.expanded[`${this.currentSection}:${idx}`];
+
+        if (isCompact && !isExpanded) {
+          return `
+      <div class="log-row-card compact-row" onclick="SpeciesLog.toggleExpand(${idx})" style="cursor:pointer;">
+        <div class="log-row compact-summary">
+          <span>${e.date}</span>
+          <span>${e.category}</span>
+          <span>${e.area || ""}</span>
+        </div>
+      </div>`;
+        }
+
         return `
       <div class="log-row-card">
+        ${isCompact ? `<div class="log-row" style="justify-content:flex-end;"><button class="icon-btn" onclick="SpeciesLog.toggleExpand(${idx})">▲ Collapse</button></div>` : ""}
         <div class="log-row">
           <input type="date" value="${e.date}" onchange="SpeciesLog.updateEntry(${idx},'date',this.value)" />
           ${on("ampm") ? `<select onchange="SpeciesLog.updateEntry(${idx},'ampm',this.value)" style="width:70px;">
@@ -429,6 +422,61 @@ const SpeciesLog = {
       })
       .join("");
     return rows || '<p class="hint">No entries yet — tap "+ Add entry" below to log one.</p>';
+  },
+
+  // ---------- Flat outing log (Rabbit, Rats, Winged Vermin — no Locations) ----------
+  renderFlatPestLog() {
+    const farms = window.APP_DATA.farms || [];
+    const on = (f) => isFieldOn(this.currentSection, f);
+    const showCategoryPicker = this.currentSection === "winged"; // only Winged Vermin picks a species first
+    const rows = this.entries()
+      .map((e, idx) => {
+        const photos = e.photos || [];
+        const photoThumbs = photos
+          .map((p, pIdx) => `<span class="photo-thumb-wrap"><img src="${cloudinaryThumb(p, 60)}" class="zeroing-thumb" /><button class="icon-btn photo-remove" onclick="SpeciesLog.removePhoto(${idx},${pIdx})">✕</button></span>`)
+          .join("");
+        return `
+      <div class="log-row-card">
+        <div class="log-row">
+          <input type="date" value="${e.date}" onchange="SpeciesLog.updateEntry(${idx},'date',this.value)" />
+          ${showCategoryPicker ? `<select onchange="SpeciesLog.updateEntry(${idx},'category',this.value)">
+            ${WINGED_VERMIN_LIST.map((c) => `<option ${c === e.category ? "selected" : ""}>${c}</option>`).join("")}
+          </select>` : ""}
+          <input type="number" min="0" placeholder="Amount" value="${e.shots}" onchange="SpeciesLog.updateEntry(${idx},'shots',this.value)" style="width:70px;" />
+        </div>
+        <div class="log-row">
+          <select onchange="SpeciesLog.updateEntry(${idx},'farmId',this.value)">
+            ${farms.map((f) => `<option value="${f.id}" ${e.farmId === f.id ? "selected" : ""}>${f.name}</option>`).join("")}
+            <option value="other" ${!e.farmId || e.farmId === "other" ? "selected" : ""}>Other (type below)</option>
+          </select>
+        </div>
+        ${!e.farmId || e.farmId === "other" ? `<div class="log-row">
+          <input type="text" placeholder="Type a location" value="${e.locationText || ""}" onchange="SpeciesLog.updateEntry(${idx},'locationText',this.value)" />
+        </div>` : ""}
+        <div class="log-row">
+          <input type="text" placeholder="///what3words" value="${e.what3words || ""}" onchange="SpeciesLog.updateEntry(${idx},'what3words',this.value)" />
+          <button class="btn small ghost" onclick="SpeciesLog.captureW3w(${idx})">📍 Auto</button>
+        </div>
+        <div class="log-row photo-row">
+          ${photoThumbs}
+          <label class="btn small ghost" style="cursor:pointer;">+ Photo
+            <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="SpeciesLog.addPhoto(${idx}, this)" />
+          </label>
+          <button class="icon-btn" onclick="SpeciesLog.removeEntry(${idx})" style="margin-left:auto;">✕ Remove entry</button>
+        </div>
+      </div>`;
+      })
+      .join("");
+    return `
+      <button class="btn small" style="margin-top:10px;" onclick="SpeciesLog.addFlatEntry()">+ Add</button>
+      <div style="margin-top:8px;">${rows || '<p class="hint">No entries yet — tap "+ Add" to log one.</p>'}</div>`;
+  },
+
+  addFlatEntry() {
+    const entry = this.newEntryDefaults();
+    entry.farmId = "other";
+    this.entries().push(entry);
+    this.saveAndRender();
   },
 
   renderGroupedByField() {
