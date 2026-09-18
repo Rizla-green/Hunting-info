@@ -113,17 +113,7 @@ const GL_SPECIES_CHART = [
 // ---------- Shared modal renderer ----------
 const ReferenceInfo = {
   showModal(title, bodyHtml) {
-    const overlay = document.getElementById("modalOverlay");
-    overlay.innerHTML = `
-      <div class="modal-box species-modal-box">
-        <div class="map-modal-header">
-          <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">← Back</button>
-          <h3>${title}</h3>
-          <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">Main Menu</button>
-        </div>
-        <div class="tracking-detail">${bodyHtml}</div>
-      </div>`;
-    overlay.classList.remove("hidden");
+    Popup.open(`${Popup.refHeader(title)}<div class="tracking-detail" style="padding:0 16px 16px;">${bodyHtml}</div>`);
   },
 
   seasons() {
@@ -165,16 +155,9 @@ const ReferenceInfo = {
   },
 
   deerLifecycle() {
-    // Chinese water deer's DEER_LIFECYCLE row is labelled "Chinese water
-    // deer" but its lifecycle image is filed as CWD — same animal.
-    const IMAGE_FOR = {
-      "Red deer": "Red", "Fallow deer": "Fallow", "Roe deer": "Roe",
-      "Sika deer": "Sika", "Muntjac": "Muntjac", "Chinese water deer": "CWD",
-    };
     let html = `<p class="hint" style="margin-top:0;">General UK guidance — timings can vary a little by region and year.</p>`;
-    DEER_LIFECYCLE.forEach((r) => {
-      const img = IMAGE_FOR[r[0]];
-      html += `<h4>${r[0]}</h4><img src="icons_final/lifecycle/${img}.png" alt="${r[0]} lifecycle chart" style="width:100%; max-width:500px; display:block; margin:0 auto 20px;" />`;
+    Object.entries(DEER_LIFECYCLE_IMAGES).forEach(([species, path]) => {
+      html += `<h4>${species}</h4><img src="${path}" alt="${species} lifecycle chart" style="width:100%; max-width:500px; display:block; margin:0 auto 20px;" />`;
     });
     this.showModal("Deer Lifecycle Chart", html);
   },

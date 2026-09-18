@@ -256,6 +256,36 @@ body {
   margin-top: 8px;
 }
 
+/* ---------- True pop-out dialogs (entry add/edit, reference content) —
+   a smaller floating card over a dimmed backdrop, with the screen
+   behind it still in place, NOT a full-page takeover like .modal-overlay. ---------- */
+.popup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 18, 13, 0.72);
+  z-index: 200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+@media (min-width: 640px) {
+  .popup-overlay { align-items: center; }
+}
+.popup-card {
+  background: var(--navy);
+  border: 1px solid var(--gold-dim);
+  border-radius: 16px 16px 0 0;
+  width: 100%;
+  max-width: 560px;
+  max-height: 88vh;
+  overflow-y: auto;
+  box-shadow: 0 -4px 24px rgba(0,0,0,0.4);
+}
+@media (min-width: 640px) {
+  .popup-card { border-radius: 16px; max-height: 80vh; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+}
+.popup-card .map-modal-header { border-radius: inherit inherit 0 0; }
+
 /* ---------- Full-page section screens (was a popup overlay — now a
    real page, matching v3.9: each section replaces the visible screen,
    not a card floating on top of the menu) ---------- */
@@ -266,16 +296,15 @@ body {
   z-index: 100;
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
 }
 .modal-box {
   display: flex;
   flex-direction: column;
-  height: 100%;
   width: 100%;
   max-width: 640px;
   margin: 0 auto;
   box-sizing: border-box;
-  overflow-y: auto;
 }
 .map-modal-box { max-width: 720px; }
 .map-modal-header {

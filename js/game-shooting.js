@@ -1,32 +1,32 @@
 /* =====================================================================
    GAME SHOOTING — day-based entries. Each entry represents a whole
-   day, not one bird: one or more species lines (each with shots taken
-   and shot/hits), a Guns standing headcount, a what3words location
-   (for the auto weather lookup) and a remembered-location dropdown
-   (same pattern as Clay Shooting/Zeroing — its own separate list).
-   Day totals (total shot, total shots taken) are calculated
+   day: a Shoot name, one or more species lines (each with Shot/hits
+   THEN Shots taken — hits comes first since that's the count that
+   matters), a Guns standing headcount, a what3words location (for
+   weather), and a remembered-location dropdown (own separate list,
+   same pattern as Clay Shooting). A separate DAY TOTAL block lets Ben
+   jot down a rough species-by-species tally for the day (every game
+   species + Teal + an Other line) — this is informal record-keeping
+   only and never feeds into any running total elsewhere in the app.
+   Day totals (from the real species lines) are calculated
    automatically. Two ratios per day, both using the same total-shots-
-   vs-total-bag numbers, just shown as two framings (confirmed — see
-   spec). The old "log an incidental Fox/Squirrel/corvid kill without
-   leaving Game Shooting" feature has been DROPPED per Ben's decision —
-   incidental kills are now logged normally under their own section.
-   Adding/editing a day always opens a genuine POPUP (never inline).
-   List view is a compact summary line — Date, Location, day's total
-   shot; tap to reopen the popup. Every day also carries Firearm (from
-   the shared Firearms list), Notes, an auto-filled Weather line, and
-   a computed Moon phase for that night.
+   vs-total-bag numbers (confirmed). Adding/editing opens a genuine
+   POPUP working on a DRAFT — nothing saves until Save is tapped.
+   List view is a compact summary line; tap to reopen the popup.
+   Every day carries Firearm, Notes, auto Weather, and a computed
+   Moon phase. Reference button (Seasons) only shows on Overview.
 ===================================================================== */
 
 const GameShooting = {
   selectedYear: null,
-  popupIdx: null,   // index of the day currently open in the popup editor, or null
+  draft: null,
+  draftIdx: null,
 
   entries() {
     window.APP_DATA.gameShooting = window.APP_DATA.gameShooting || [];
     return window.APP_DATA.gameShooting;
   },
 
-  // Remembered locations — own separate list, same pattern as Clay Shooting.
   locations() {
     window.APP_DATA.gameLocations = window.APP_DATA.gameLocations || [];
     return window.APP_DATA.gameLocations;
@@ -41,7 +41,6 @@ const GameShooting = {
 
   open() {
     this.selectedYear = currentSeasonLabel("game");
-    this.popupIdx = null;
     this.render();
   },
 
@@ -52,98 +51,116 @@ const GameShooting = {
     return { shotsTaken, hits, pct };
   },
 
-  addDay() {
-    this.entries().push({
+  newDayDefaults() {
+    const dayTotal = {};
+    GAME_BIRD_LIST.forEach((b) => { dayTotal[b] = 0; });
+    dayTotal["Other"] = 0;
+    return {
       date: new Date().toISOString().slice(0, 10),
+      shootName: "",
       location: this.locations()[0] || "",
-      what3words: "",
-      lat: null,
-      lng: null,
-      weather: "",
+      what3words: "", lat: null, lng: null, weather: "",
       gunsStanding: 1,
-      firearm: "",
-      notes: "",
-      species: [{ species: GAME_BIRD_LIST[0], shotsTaken: 0, hits: 0 }],
-    });
-    this.popupIdx = this.entries().length - 1;
-    persistData();
-    this.render();
+      firearm: "", notes: "",
+      species: [{ species: GAME_BIRD_LIST[0], hits: 0, shotsTaken: 0 }],
+      dayTotal, // rough species-by-species tally for the day only — never feeds any running total
+    };
   },
 
-  removeDay(idx) {
+  openAddPopup() {
+    this.draft = this.newDayDefaults();
+    this.draftIdx = null;
+    Popup.open(this.renderPopupBody(), () => this.renderBody());
+  },
+  openEditPopup(idx) {
+    const day = this.entries()[idx];
+    this.draft = { ...day, dayTotal: { ...(day.dayTotal || {}) } };
+    GAME_BIRD_LIST.forEach((b) => { if (this.draft.dayTotal[b] === undefined) this.draft.dayTotal[b] = 0; });
+    if (this.draft.dayTotal["Other"] === undefined) this.draft.dayTotal["Other"] = 0;
+    this.draftIdx = idx;
+    Popup.open(this.renderPopupBody(), () => this.renderBody());
+  },
+  updateDraft(field, value) {
+    this.draft[field] = value;
+    Popup.markDirty();
+    Popup.setBody(this.renderPopupBody());
+  },
+  updateDayTotal(species, value) {
+    this.draft.dayTotal[species] = value;
+    Popup.markDirty();
+    Popup.setBody(this.renderPopupBody());
+  },
+
+  saveDraft() {
+    if (this.draftIdx === null) this.entries().push(this.draft);
+    else this.entries()[this.draftIdx] = this.draft;
+    persistData();
+    Popup.dirty = false;
+    this.draft = null;
+    this.draftIdx = null;
+    Popup.close();
+  },
+  removeDraft() {
+    if (this.draftIdx === null) { Popup.dirty = false; Popup.close(); return; }
     if (!confirm("Remove this day? This can't be undone.")) return;
-    this.entries().splice(idx, 1);
-    this.popupIdx = null;
+    this.entries().splice(this.draftIdx, 1);
     persistData();
-    this.render();
+    Popup.dirty = false;
+    this.draft = null;
+    this.draftIdx = null;
+    Popup.close();
   },
 
-  updateDay(idx, field, value) {
-    this.entries()[idx][field] = value;
-    this.saveAndRenderPopup(idx);
-  },
-
-  handleLocationChange(idx, selectEl) {
+  handleLocationChange(selectEl) {
     if (selectEl.value === "__add_new__") {
       const name = prompt("New location name:");
       const added = this.addLocation(name);
-      if (added) this.updateDay(idx, "location", added);
-      else this.saveAndRenderPopup(idx);
+      if (added) this.updateDraft("location", added);
+      else Popup.setBody(this.renderPopupBody());
       return;
     }
-    this.updateDay(idx, "location", selectEl.value);
+    this.updateDraft("location", selectEl.value);
   },
-
-  handleFirearmChange(idx, selectEl) {
+  handleFirearmChange(selectEl) {
     if (selectEl.value === "__add_new__") {
       const added = Firearms.addInline();
-      if (added) this.updateDay(idx, "firearm", added);
-      else this.saveAndRenderPopup(idx);
+      if (added) this.updateDraft("firearm", added);
+      else Popup.setBody(this.renderPopupBody());
       return;
     }
-    this.updateDay(idx, "firearm", selectEl.value);
+    this.updateDraft("firearm", selectEl.value);
   },
-
-  captureW3w(idx) {
+  captureW3w() {
     LocationMatch.captureLocation(async (loc) => {
       if (!loc) return;
-      const day = this.entries()[idx];
-      day.what3words = loc.what3words;
-      day.lat = loc.lat;
-      day.lng = loc.lng;
-      this.saveAndRenderPopup(idx);
-      day.weather = await fetchWeatherForEntry(loc.lat, loc.lng, day.date);
-      this.saveAndRenderPopup(idx);
+      this.draft.what3words = loc.what3words;
+      this.draft.lat = loc.lat;
+      this.draft.lng = loc.lng;
+      Popup.markDirty();
+      Popup.setBody(this.renderPopupBody());
+      this.draft.weather = await fetchWeatherForEntry(loc.lat, loc.lng, this.draft.date);
+      Popup.setBody(this.renderPopupBody());
     });
   },
 
-  addSpeciesLine(dayIdx) {
-    this.entries()[dayIdx].species.push({ species: GAME_BIRD_LIST[0], shotsTaken: 0, hits: 0 });
-    this.saveAndRenderPopup(dayIdx);
+  addSpeciesLine() {
+    this.draft.species.push({ species: GAME_BIRD_LIST[0], hits: 0, shotsTaken: 0 });
+    Popup.markDirty();
+    Popup.setBody(this.renderPopupBody());
   },
-  removeSpeciesLine(dayIdx, lineIdx) {
-    this.entries()[dayIdx].species.splice(lineIdx, 1);
-    this.saveAndRenderPopup(dayIdx);
+  removeSpeciesLine(lineIdx) {
+    this.draft.species.splice(lineIdx, 1);
+    Popup.markDirty();
+    Popup.setBody(this.renderPopupBody());
   },
-  updateSpeciesLine(dayIdx, lineIdx, field, value) {
-    this.entries()[dayIdx].species[lineIdx][field] = value;
-    this.saveAndRenderPopup(dayIdx);
-  },
-
-  saveAndRender() { persistData(); this.render(); },
-  saveAndRenderPopup(idx) {
-    persistData();
-    this.popupIdx = idx;
-    const body = document.getElementById("gameShootingBody");
-    if (body) body.innerHTML = this.renderDayPopup(idx);
+  updateSpeciesLine(lineIdx, field, value) {
+    this.draft.species[lineIdx][field] = value;
+    Popup.markDirty();
+    Popup.setBody(this.renderPopupBody());
   },
 
   setYear(year) { this.selectedYear = year; this.render(); },
 
-  openDayPopup(idx) { this.popupIdx = idx; this.render(); },
-  closeDayPopup() { this.popupIdx = null; this.render(); },
-
-  // ---------- Category totals across all days in a season (birds shot/hits) ----------
   categoryTotalsFor(days) {
     const totals = {};
     GAME_BIRD_LIST.forEach((b) => { totals[b] = 0; });
@@ -158,23 +175,12 @@ const GameShooting = {
 
   render() {
     const overlay = document.getElementById("modalOverlay");
-
-    if (this.popupIdx !== null && this.entries()[this.popupIdx]) {
-      overlay.innerHTML = `<div class="modal-box species-modal-box"><div id="gameShootingBody"></div></div>`;
-      overlay.classList.remove("hidden");
-      document.getElementById("gameShootingBody").innerHTML = this.renderDayPopup(this.popupIdx);
-      return;
-    }
-
     overlay.innerHTML = `
       <div class="modal-box species-modal-box">
         <div class="map-modal-header">
           <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">← Back</button>
           <h3>Game Shooting</h3>
           <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">Main Menu</button>
-        </div>
-        <div class="species-tabs">
-          <button class="tab-btn" onclick="ReferenceInfo.gameSeasons()">📅 View game seasons</button>
         </div>
         <div id="gameShootingBody"></div>
       </div>`;
@@ -191,18 +197,18 @@ const GameShooting = {
     const years = seasonYearsFor(days, "game");
     if (!years.includes(this.selectedYear)) this.selectedYear = years[0];
     const yearDays = days.filter((d) => seasonLabelFor(d.date, "game") === this.selectedYear);
-
     const allTimeTotal = days.reduce((s, d) => s + this.dayTotals(d).hits, 0);
     const totals = this.categoryTotalsFor(yearDays);
     const grandTotal = Object.values(totals).reduce((a, b) => a + b, 0);
 
     return `
+      <div class="species-tabs"><button class="tab-btn" onclick="ReferenceInfo.gameSeasons()">📅 View game seasons</button></div>
       ${renderStatCards([{ value: allTimeTotal, label: "Overall total (all years)" }])}
       <p class="hint">${seasonHintFor("game")}</p>
       <div class="species-tabs">${renderYearTabs(years, this.selectedYear, "game", "GameShooting.setYear")}</div>
       ${renderStatCards([{ value: grandTotal, label: "Total — season " + this.selectedYear }])}
       <div style="margin-top:10px;">${renderCategoryTable(totals, grandTotal)}</div>
-      <button class="btn small" style="margin-top:10px;" onclick="GameShooting.addDay()">+ Add day</button>`;
+      <button class="btn small" style="margin-top:10px;" onclick="GameShooting.openAddPopup()">+ Add day</button>`;
   },
 
   renderDayList() {
@@ -211,10 +217,10 @@ const GameShooting = {
       .map((day, idx) => {
         const t = this.dayTotals(day);
         return `
-      <div class="log-row-card compact-row" onclick="GameShooting.openDayPopup(${idx})" style="cursor:pointer;">
+      <div class="log-row-card compact-row" onclick="GameShooting.openEditPopup(${idx})" style="cursor:pointer;">
         <div class="log-row compact-summary">
           <span>${day.date}</span>
-          <span>${day.location || ""}</span>
+          <span>${day.shootName || day.location || ""}</span>
           <span>${t.hits} shot</span>
         </div>
       </div>`;
@@ -223,72 +229,77 @@ const GameShooting = {
     return `<div style="margin-top:8px;">${rows || '<p class="hint">No days logged yet — tap "+ Add day" above.</p>'}</div>`;
   },
 
-  // ---------- The popup editor for a single day ----------
-  renderDayPopup(idx) {
-    const day = this.entries()[idx];
+  // ---------- The popup editor for a single day (draft) ----------
+  renderPopupBody() {
+    const day = this.draft;
     const t = this.dayTotals(day);
     const locations = this.locations();
 
     const speciesRows = (day.species || [])
       .map((line, lineIdx) => `
         <div class="log-row">
-          <select onchange="GameShooting.updateSpeciesLine(${idx},${lineIdx},'species',this.value)">
+          <select onchange="GameShooting.updateSpeciesLine(${lineIdx},'species',this.value)">
             ${GAME_BIRD_LIST.map((b) => `<option ${b === line.species ? "selected" : ""}>${b}</option>`).join("")}
           </select>
-          <input type="number" min="0" placeholder="Shots taken" value="${line.shotsTaken}" onchange="GameShooting.updateSpeciesLine(${idx},${lineIdx},'shotsTaken',this.value)" style="width:100px;" />
-          <input type="number" min="0" placeholder="Shot (hits)" value="${line.hits}" onchange="GameShooting.updateSpeciesLine(${idx},${lineIdx},'hits',this.value)" style="width:100px;" />
-          <button class="icon-btn" onclick="GameShooting.removeSpeciesLine(${idx},${lineIdx})">✕</button>
+          <input type="number" min="0" placeholder="Shot" value="${line.hits}" onchange="GameShooting.updateSpeciesLine(${lineIdx},'hits',this.value)" style="width:90px;" />
+          <input type="number" min="0" placeholder="Shots taken" value="${line.shotsTaken}" onchange="GameShooting.updateSpeciesLine(${lineIdx},'shotsTaken',this.value)" style="width:100px;" />
+          <button class="icon-btn" onclick="GameShooting.removeSpeciesLine(${lineIdx})">✕</button>
         </div>`)
       .join("");
 
-    return `
-      <div class="map-modal-header">
-        <button class="icon-btn" onclick="GameShooting.closeDayPopup()">← Back</button>
-        <h3>Game Shooting Day</h3>
-        <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">Main Menu</button>
-      </div>
-      <div class="log-row">
-        <input type="date" value="${day.date}" onchange="GameShooting.updateDay(${idx},'date',this.value)" />
-        <select onchange="GameShooting.handleLocationChange(${idx}, this)">
-          <option value="" ${!day.location ? "selected" : ""}>Location…</option>
-          ${locations.map((l) => `<option ${l === day.location ? "selected" : ""}>${l}</option>`).join("")}
-          <option value="__add_new__">+ Add new location…</option>
-        </select>
-      </div>
-      <div class="log-row">
-        <input type="text" placeholder="///what3words" value="${day.what3words || ""}" onchange="GameShooting.updateDay(${idx},'what3words',this.value)" />
-        <button class="btn small ghost" onclick="GameShooting.captureW3w(${idx})">📍 Auto</button>
-      </div>
-      <div class="log-row">
-        <span class="hint" style="margin:0;">🌦️ Weather: ${day.weather || "— (set a location to auto-fill)"}</span>
-      </div>
-      <div class="log-row">
-        <span class="hint" style="margin:0;">${moonPhaseLabel(day.date) || ""} (that night)</span>
-      </div>
-      <div class="log-row">
-        <input type="number" min="0" placeholder="Guns standing" value="${day.gunsStanding}" onchange="GameShooting.updateDay(${idx},'gunsStanding',this.value)" style="width:130px;" />
-      </div>
-      <div class="log-row">
-        <select onchange="GameShooting.handleFirearmChange(${idx}, this)">
-          <option value="" ${!day.firearm ? "selected" : ""}>Firearm…</option>
-          ${Firearms.list().map((f) => `<option ${f === day.firearm ? "selected" : ""}>${f}</option>`).join("")}
-          <option value="__add_new__">+ Add new firearm…</option>
-        </select>
-      </div>
-      <div class="log-row">
-        <input type="text" placeholder="Notes" value="${day.notes || ""}" onchange="GameShooting.updateDay(${idx},'notes',this.value)" />
-      </div>
-      <div class="section-title" style="margin-top:10px;"><h4>Species shot today</h4></div>
-      ${speciesRows}
-      <button class="btn small ghost" onclick="GameShooting.addSpeciesLine(${idx})">+ Add species</button>
-      <div class="log-row" style="margin-top:10px;">
-        <span class="hint" style="margin:0;">Day total: ${t.hits} shot / ${t.shotsTaken} shots taken</span>
-      </div>
-      <div class="stat-cards" style="margin-top:6px;">
-        <div class="stat-card"><div class="num">${t.pct}%</div><div class="lbl">Your shots-to-hits ratio</div></div>
-        <div class="stat-card"><div class="num">${t.pct}%</div><div class="lbl">Whole day ratio</div></div>
-      </div>
-      <button class="icon-btn" onclick="GameShooting.removeDay(${idx})" style="margin-top:8px;">✕ Remove day</button>
-    `;
+    const dayTotalRows = [...GAME_BIRD_LIST, "Other"]
+      .map((sp) => `
+        <div class="log-row">
+          <span style="flex:1;">${sp}</span>
+          <input type="number" min="0" value="${day.dayTotal[sp] || 0}" onchange="GameShooting.updateDayTotal('${sp}', this.value)" style="width:80px;" />
+        </div>`)
+      .join("");
+
+    let html = Popup.header("Game Shooting Day", "GameShooting.saveDraft()");
+    html += `<div style="padding:0 16px 16px;">`;
+    html += `<div class="log-row">
+      <input type="date" value="${day.date}" onchange="GameShooting.updateDraft('date',this.value)" />
+      <input type="text" placeholder="Shoot name" value="${day.shootName || ""}" onchange="GameShooting.updateDraft('shootName',this.value)" />
+    </div>`;
+    html += `<div class="log-row">
+      <select onchange="GameShooting.handleLocationChange(this)">
+        <option value="" ${!day.location ? "selected" : ""}>Location…</option>
+        ${locations.map((l) => `<option ${l === day.location ? "selected" : ""}>${l}</option>`).join("")}
+        <option value="__add_new__">+ Add new location…</option>
+      </select>
+    </div>`;
+    html += `<div class="log-row">
+      <input type="text" placeholder="///what3words" value="${day.what3words || ""}" onchange="GameShooting.updateDraft('what3words',this.value)" />
+      <button class="btn small ghost" onclick="GameShooting.captureW3w()">📍 Auto</button>
+    </div>`;
+    html += `<div class="log-row"><span class="hint" style="margin:0;">🌦️ Weather: ${day.weather || "— (set a location to auto-fill)"}</span></div>`;
+    html += `<div class="log-row"><span class="hint" style="margin:0;">${moonPhaseLabel(day.date) || ""} (that night)</span></div>`;
+    html += `<div class="log-row"><input type="number" min="0" placeholder="Guns standing" value="${day.gunsStanding}" onchange="GameShooting.updateDraft('gunsStanding',this.value)" style="width:130px;" /></div>`;
+    html += `<div class="log-row">
+      <select onchange="GameShooting.handleFirearmChange(this)">
+        <option value="" ${!day.firearm ? "selected" : ""}>Firearm…</option>
+        ${Firearms.list().map((f) => `<option ${f === day.firearm ? "selected" : ""}>${f}</option>`).join("")}
+        <option value="__add_new__">+ Add new firearm…</option>
+      </select>
+    </div>`;
+    html += `<div class="log-row"><input type="text" placeholder="Notes" value="${day.notes || ""}" onchange="GameShooting.updateDraft('notes',this.value)" /></div>`;
+
+    html += `<div class="section-title" style="margin-top:12px;"><h4>Species shot today</h4></div>`;
+    html += `<div class="log-row hint" style="margin:0 0 4px;"><span style="flex:1;">Species</span><span style="width:90px;">Shot</span><span style="width:100px;">Shots taken</span><span style="width:24px;"></span></div>`;
+    html += speciesRows;
+    html += `<button class="btn small ghost" onclick="GameShooting.addSpeciesLine()">+ Add species</button>`;
+    html += `<div class="log-row" style="margin-top:10px;"><span class="hint" style="margin:0;">Day total: ${t.hits} shot / ${t.shotsTaken} shots taken</span></div>`;
+    html += `<div class="stat-cards" style="margin-top:6px;">
+      <div class="stat-card"><div class="num">${t.pct}%</div><div class="lbl">Your shots-to-hits ratio</div></div>
+      <div class="stat-card"><div class="num">${t.pct}%</div><div class="lbl">Whole day ratio</div></div>
+    </div>`;
+
+    html += `<div class="section-title" style="margin-top:16px;"><h4>Day total (rough tally)</h4></div>`;
+    html += `<p class="hint" style="margin-top:0;">Just for this day — doesn't count towards any tally elsewhere.</p>`;
+    html += dayTotalRows;
+
+    html += `<button class="icon-btn" onclick="GameShooting.removeDraft()" style="margin-top:14px;">✕ Remove day</button>`;
+    html += `</div>`;
+    return html;
   },
 };
