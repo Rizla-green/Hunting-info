@@ -25,8 +25,11 @@ const LocationMatch = {
   findFarmForPoint(lat, lng) {
     const farms = window.APP_DATA.farms || [];
     for (const farm of farms) {
-      const boundary = farm.land?.boundary;
-      if (boundary && boundary.length > 2 && this.pointInPolygon(lat, lng, boundary)) {
+      // A farm can be several separate pieces of land — inside ANY of its outlines counts.
+      const outlines = Array.isArray(farm.land?.boundaries)
+        ? farm.land.boundaries.map((b) => b.points)
+        : [farm.land?.boundary];               // farms not yet opened on the Land map still have the old single outline
+      if (outlines.some((pts) => pts && pts.length > 2 && this.pointInPolygon(lat, lng, pts))) {
         return farm.id;
       }
     }

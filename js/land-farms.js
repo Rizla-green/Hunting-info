@@ -3,8 +3,9 @@
    One map per farm. Two kinds of drawn shape, both made with the
    Leaflet.draw toolbar (polygon / rectangle, with Finish / Delete last
    point / Cancel, and an edit tool):
-     - ONE farm boundary  — the outline of the whole farm. Reused by every
-       species' shot-location matching (a pin inside it belongs to the farm).
+     - One or MORE farm boundaries — an outline for each separate piece of
+       land the farm is made of. Reused by every species' shot-location
+       matching (a pin inside any of them belongs to the farm).
      - Any number of named FIELDS inside it — labelled on the map, and an
        entry's pin is matched to its field automatically (see fields.js).
    Plus toggleable point/line layers: Hazards, Gates/Entrances, Water,
@@ -34,7 +35,7 @@ const LandAndFarms = {
   drawMode: "boundary",   // what the polygon/rectangle tools make right now: "boundary" | "field"
   isDrawing: false,       // true while a draw/edit is in progress (blocks marker popups/drops)
   editGroup: null,        // featureGroup holding the boundary + field shapes (what the edit tool works on)
-  boundaryLayer: null,
+  boundaryLayers: {},     // boundaryId -> L.polygon (a farm can have several separate outlines)
   fieldLayers: {},        // fieldId -> L.polygon
   pointDraft: null,       // marker being added/edited in the popup editor
 
@@ -44,7 +45,8 @@ const LandAndFarms = {
 
   // Farm data shape (stored per farm, alongside the existing Property record):
   //   farm.land = {
-  //     boundary: [{lat,lng}, ...] | null,           // the whole-farm outline
+  //     boundaries: [{id, points:[{lat,lng}]}],      // outline(s) of the farm — one per separate piece of land
+  //     boundary: [{lat,lng}, ...] | null,           // legacy: kept equal to the first outline for older app copies
   //     fields:   [{id, name, points:[{lat,lng}]}],  // named fields inside it
   //     layers: { hazard: [{lat,lng,note}], gate: [{lat,lng,note,gateCode,what3words}],
   //               water: [...], building: [...], footpath: [[{lat,lng},...], ...],
@@ -58,6 +60,7 @@ const LandAndFarms = {
     }
     if (!farm.land.layers) farm.land.layers = {};
     if (!Array.isArray(farm.land.fields)) farm.land.fields = [];
+    this.migrateBoundaries(farm.land);
     BUILT_IN_LAYERS.forEach((l) => {
       if (!farm.land.layers[l.key]) farm.land.layers[l.key] = [];
     });
@@ -65,6 +68,22 @@ const LandAndFarms = {
       if (!farm.land.layers["custom_" + c.key]) farm.land.layers["custom_" + c.key] = [];
     });
     return farm.land;
+  },
+
+  // Farms used to have a single outline (land.boundary). It becomes the first
+  // entry of land.boundaries the first time the farm is loaded; nothing is lost.
+  migrateBoundaries(land) {
+    if (!Array.isArray(land.boundaries)) {
+      land.boundaries = land.boundary && land.boundary.length > 2
+        ? [{ id: Fields.newId().replace("field-", "boundary-"), points: land.boundary }]
+        : [];
+    }
+  },
+
+  // Keeps the old single-outline field equal to the first outline, so a phone
+  // still running an older copy of the app keeps working.
+  syncLegacyBoundary(land) {
+    land.boundary = land.boundaries.length ? land.boundaries[0].points : null;
   },
 
   // opts.activateLayer — open with that marker layer already selected (e.g. "gate")
@@ -89,6 +108,7 @@ const LandAndFarms = {
         <div class="section-title" style="margin-top:10px;"><h4>Drawing tools make a…</h4></div>
         <div class="species-tabs" id="landDrawMode"></div>
         <p class="hint" id="landMapInfo"></p>
+        <div id="landBoundaryList"></div>
         <div id="landFieldList"></div>
         <div class="section-title" style="margin-top:14px;"><h4>Markers</h4></div>
         <div id="landLayerToggles" class="land-layer-toggles"></div>
@@ -103,8 +123,8 @@ const LandAndFarms = {
     this.layerGroups = {};
     this.activeLayerKey = null;
     this.fieldLayers = {};
-    this.boundaryLayer = null;
-    this.drawMode = land.boundary && land.boundary.length > 2 ? "field" : "boundary";
+    this.boundaryLayers = {};
+    this.drawMode = land.boundaries.length ? "field" : "boundary";
 
     setTimeout(() => {
       this.map = L.map("landMapContainer").setView([51.4816, -3.1791], 15);
@@ -114,13 +134,14 @@ const LandAndFarms = {
       ).addTo(this.map);
 
       this.editGroup = L.featureGroup().addTo(this.map);
-      this.renderBoundary(land);
+      this.renderBoundaries(land);
       (land.fields || []).forEach((f) => this.addFieldLayer(f));
       this.fitToShapes(land);
 
       this.renderAllLayers(land);
       this.renderLayerToggles(land);
       this.renderDrawMode();
+      this.renderBoundaryList(land);
       this.renderFieldList(land);
       this.addDrawControl();
       this.map.on("click", (e) => this.onMapClick(e, land));
@@ -131,8 +152,7 @@ const LandAndFarms = {
 
   fitToShapes(land) {
     let bounds = null;
-    if (this.boundaryLayer) bounds = this.boundaryLayer.getBounds();
-    else if (this.editGroup && this.editGroup.getLayers().length) bounds = this.editGroup.getBounds();
+    if (this.editGroup && this.editGroup.getLayers().length) bounds = this.editGroup.getBounds(); // every outline + field
     if (bounds && bounds.isValid()) this.map.fitBounds(bounds.pad(0.15));
   },
 
@@ -188,21 +208,69 @@ const LandAndFarms = {
       <button class="tab-btn ${this.drawMode === "boundary" ? "active" : ""}" onclick="LandAndFarms.setDrawMode('boundary')">Farm boundary</button>
       <button class="tab-btn ${this.drawMode === "field" ? "active" : ""}" onclick="LandAndFarms.setDrawMode('field')">Field</button>`;
     document.getElementById("landMapInfo").textContent = this.drawMode === "boundary"
-      ? "Draw the outline of the whole farm with the polygon or rectangle tool (top right of the map). Tap Finish when you've closed the shape. Drawing a new one replaces the current farm boundary."
+      ? "Draw the outline of a piece of the farm with the polygon or rectangle tool (top right of the map). Tap Finish when you've closed the shape. If the farm is made of separate pieces of land, draw one outline for each — they're all kept."
       : "Draw a field inside the farm with the polygon or rectangle tool (top right of the map), then give it a name. Use the pencil tool to reshape any shape, and tap a field to rename or delete it.";
   },
 
-  // ---------- Farm boundary ----------
-  renderBoundary(land) {
-    if (this.boundaryLayer) { this.editGroup.removeLayer(this.boundaryLayer); this.boundaryLayer = null; }
-    if (land.boundary && land.boundary.length > 2) {
-      this.boundaryLayer = L.polygon(land.boundary.map((p) => [p.lat, p.lng]), {
+  // ---------- Farm boundaries (one outline per separate piece of land) ----------
+  renderBoundaries(land) {
+    Object.values(this.boundaryLayers).forEach((l) => this.editGroup.removeLayer(l));
+    this.boundaryLayers = {};
+    land.boundaries.forEach((b) => {
+      if (!b.points || b.points.length < 3) return;
+      const layer = L.polygon(b.points.map((p) => [p.lat, p.lng]), {
         color: BOUNDARY_COLOR, weight: 3, dashArray: "8 6", fill: false,
       });
-      this.boundaryLayer._landRef = { type: "boundary" };
-      this.editGroup.addLayer(this.boundaryLayer);
-      if (this.boundaryLayer.bringToBack) this.boundaryLayer.bringToBack();
+      layer._landRef = { type: "boundary", id: b.id };
+      layer.on("click", (ev) => {
+        if (this.activeLayerKey || this.isDrawing) return;
+        L.popup().setLatLng(ev.latlng).setContent(this.boundaryPopupHtml(b.id)).openOn(this.map);
+      });
+      this.editGroup.addLayer(layer);
+      if (layer.bringToBack) layer.bringToBack();
+      this.boundaryLayers[b.id] = layer;
+    });
+  },
+
+  boundaryPopupHtml(id) {
+    const land = this.currentLand();
+    const n = land ? land.boundaries.findIndex((b) => b.id === id) + 1 : 0;
+    return `<strong>Farm boundary ${n}</strong><br>
+      <button class="btn small ghost" style="margin-top:6px;" onclick="LandAndFarms.deleteBoundary('${id}')">Delete this outline</button>`;
+  },
+
+  renderBoundaryList(land) {
+    const el = document.getElementById("landBoundaryList");
+    if (!el) return;
+    if (!land.boundaries.length) {
+      el.innerHTML = `<p class="hint">No farm boundary drawn yet. Choose "Farm boundary" above, then draw one on the map.</p>`;
+      return;
     }
+    el.innerHTML = `<div class="section-title" style="margin-top:14px;"><h4>Farm boundaries (${land.boundaries.length})</h4></div>` + land.boundaries
+      .map((b, i) => `<div class="log-row">
+        <span style="flex:1; cursor:pointer;" onclick="LandAndFarms.zoomToBoundary('${b.id}')">Boundary ${i + 1}</span>
+        <button class="btn small ghost" onclick="LandAndFarms.deleteBoundary('${b.id}')">Delete</button>
+      </div>`)
+      .join("");
+  },
+
+  zoomToBoundary(id) {
+    const layer = this.boundaryLayers[id];
+    if (layer && this.map) this.map.fitBounds(layer.getBounds().pad(0.2));
+  },
+
+  // Removes just this one outline. Fields, gates and entries are not affected.
+  deleteBoundary(id) {
+    const land = this.currentLand();
+    if (!land || !land.boundaries.some((b) => b.id === id)) return;
+    if (!confirm("Delete this boundary outline? Your fields, gates and entries are not affected.")) return;
+    const layer = this.boundaryLayers[id];
+    if (layer) { this.editGroup.removeLayer(layer); delete this.boundaryLayers[id]; }
+    land.boundaries = land.boundaries.filter((b) => b.id !== id);
+    this.syncLegacyBoundary(land);
+    persistData();
+    this.map.closePopup();
+    this.renderBoundaryList(land);
   },
 
   // ---------- Fields ----------
@@ -297,13 +365,17 @@ const LandAndFarms = {
     if (points.length < 3) return;
 
     if (this.drawMode === "boundary") {
-      if (land.boundary && land.boundary.length > 2 && !confirm("Replace this farm's existing boundary with the one you just drew?")) return;
-      land.boundary = points;
-      this.renderBoundary(land);
+      land.boundaries.push({ id: Fields.newId().replace("field-", "boundary-"), points });
+      this.syncLegacyBoundary(land);
+      this.renderBoundaries(land);
+      this.renderBoundaryList(land);
       persistData();
-      this.drawMode = "field"; // the next thing to draw is normally a field
+      const count = land.boundaries.length;
+      if (count === 1) this.drawMode = "field"; // after the first outline the next thing to draw is normally a field
       this.renderDrawMode();
-      document.getElementById("landMapInfo").textContent = "Farm boundary saved. It's used to match every shot to this farm. Now draw the fields inside it — the tools make Fields from here.";
+      document.getElementById("landMapInfo").textContent = count === 1
+        ? "Farm boundary saved. It's used to match every shot to this farm. If the farm has other separate pieces of land, choose \"Farm boundary\" again and draw them too — otherwise start drawing the fields."
+        : `Boundary ${count} added. Every outline counts as part of this farm.`;
       return;
     }
 
@@ -327,8 +399,11 @@ const LandAndFarms = {
       const ref = layer._landRef;
       if (!ref) return;
       const points = this.pointsFromLayer(layer);
-      if (ref.type === "boundary") land.boundary = points;
-      else {
+      if (ref.type === "boundary") {
+        const b = land.boundaries.find((x) => x.id === ref.id);
+        if (b) b.points = points;
+        this.syncLegacyBoundary(land);
+      } else {
         const f = land.fields.find((x) => x.id === ref.id);
         if (f) f.points = points;
       }
@@ -657,7 +732,7 @@ const LandAndFarms = {
   teardownMap() {
     if (this.map) { this.map.remove(); this.map = null; }
     this.editGroup = null;
-    this.boundaryLayer = null;
+    this.boundaryLayers = {};
     this.fieldLayers = {};
     this.isDrawing = false;
     this._linePoints = []; this._lineDraftMarkers = []; this._lineDraft = null;
