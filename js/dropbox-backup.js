@@ -12,7 +12,10 @@
 //      after a few hours, which is why backups used to silently stop).
 //      Kept as a fallback.
 //
-// Every save that changes data triggers a backup upload (see triggerBackup).
+// Backups run once a week: when the app opens and the last backup is 7 or
+// more days old (see maybeRunWeeklyBackup), or when "Back up now" is pressed
+// in Options. After each upload the app tidies its own old backup files,
+// keeping only the newest 12.
 
 // The App key is a public identifier (not a secret) — safe in the repo.
 const DROPBOX_APP_KEY = "pie3o0610s0or9o";
@@ -25,6 +28,9 @@ const DROPBOX_ACCESS_KEY = "huntingInfo_dropboxAccess";     // {token, expiresAt
 const DROPBOX_PKCE_KEY = "huntingInfo_dropboxPkce";         // {verifier, state, ts} during the connect round-trip
 const DROPBOX_STATUS_KEY = "huntingInfo_dropboxStatus";     // {ok, at, detail} result of the last backup
 const DROPBOX_BACKUP_PATH = "/HuntingInfoBackups";
+const DROPBOX_PRUNE_KEY = "huntingInfo_dropboxPruneNote";   // set when old backups couldn't be tidied
+const DROPBOX_BACKUP_EVERY_MS = 7 * 24 * 60 * 60 * 1000;    // one backup a week
+const DROPBOX_KEEP_BACKUPS = 12;                            // newest backups kept in Dropbox
 
 // ---------- Small helpers ----------
 function dropboxStore(key, value) {
@@ -143,7 +149,8 @@ async function handleDropboxRedirect() {
     dropboxStore(DROPBOX_REFRESH_KEY, data.refresh_token);
     dropboxStore(DROPBOX_ACCESS_KEY, { token: data.access_token, expiresAt: Date.now() + (data.expires_in || 14400) * 1000 });
     dropboxStore(DROPBOX_STATUS_KEY, null);
-    return "Dropbox connected — backups will now run automatically on every save.";
+    dropboxStore(DROPBOX_PRUNE_KEY, null);
+    return "Dropbox connected — your first backup is made as soon as your data has loaded, then one every 7 days.";
   } catch (err) {
     console.warn("Dropbox token exchange couldn't run (offline?):", err);
     dropboxStore(DROPBOX_PKCE_KEY, null);
@@ -216,14 +223,25 @@ function recordDropboxStatus(ok, detail) {
   dropboxStore(DROPBOX_STATUS_KEY, { ok: !!ok, at: Date.now(), detail: detail || "" });
 }
 
+// True when a weekly backup is owed: never backed up, the last attempt failed,
+// or the last good backup is 7 or more days old.
+function dropboxBackupDue() {
+  const status = dropboxReadJson(DROPBOX_STATUS_KEY);
+  if (!status || !status.ok) return true;
+  return Date.now() - status.at >= DROPBOX_BACKUP_EVERY_MS;
+}
+
 // Returns {text, ok} for the Options screen.
 function dropboxStatusInfo() {
   const status = dropboxReadJson(DROPBOX_STATUS_KEY);
   const when = status ? new Date(status.at).toLocaleString() : "";
+  const next = status && status.ok ? new Date(status.at + DROPBOX_BACKUP_EVERY_MS).toLocaleDateString() : "";
+  const pruneNote = dropboxRead(DROPBOX_PRUNE_KEY);
+  const tail = pruneNote ? ` ${pruneNote}` : "";
   if (hasDropboxRefreshToken()) {
-    if (status && status.ok) return { text: `Connected. Last backup ${when}.`, ok: true };
+    if (status && status.ok) return { text: `Connected. Last backup ${when}. Next automatic backup due on or after ${next}, when you open the app.${tail}`, ok: true };
     if (status && !status.ok) return { text: `Connected, but the last backup (${when}) failed: ${status.detail || "unknown problem"}. It will retry on the next save.`, ok: false };
-    return { text: "Connected. The first backup runs on your next save.", ok: true };
+    return { text: "Connected. The first backup runs when the app next opens.", ok: true };
   }
   if (getDropboxToken()) {
     if (status && !status.ok) return { text: `Using a pasted token, and the last backup (${when}) failed: ${status.detail || "unknown problem"}. Pasted tokens expire after a few hours — use Connect Dropbox instead.`, ok: false };
@@ -279,6 +297,7 @@ async function backupToDropbox(dataObject) {
       return { ok: false, reason: "http-error", detail: errText };
     }
     recordDropboxStatus(true, "");
+    await pruneDropboxBackups(token);   // never throws
     return { ok: true };
   } catch (err) {
     // Most likely offline — this is expected and not a hard failure.
@@ -288,10 +307,60 @@ async function backupToDropbox(dataObject) {
   }
 }
 
-// Call this after any write to Firestore/local queue. Fire-and-forget —
-// never blocks the UI or the save the user is doing, and failures are
-// recorded (see dropboxStatusInfo) rather than interrupting anything.
-function triggerBackup(dataObject) {
-  if (!hasDropboxBackupConfigured()) return;
-  backupToDropbox(dataObject);
+// Keeps only the newest DROPBOX_KEEP_BACKUPS files that this app made
+// (hunting-info-backup-*.json) in the backup folder. Anything else in the
+// folder, or elsewhere in Dropbox, is never touched. Failure is non-fatal:
+// the most likely cause is the Dropbox app not having the "files.metadata.read"
+// permission, which is noted for the Options screen instead of interrupting.
+async function pruneDropboxBackups(token) {
+  try {
+    const post = (endpoint, body) => fetch("https://api.dropboxapi.com/2/files/" + endpoint, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    let res = await post("list_folder", { path: DROPBOX_BACKUP_PATH, limit: 2000 });
+    let data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      dropboxStore(DROPBOX_PRUNE_KEY, "Old backups couldn't be tidied — in the Dropbox App Console tick files.metadata.read, Submit, then press Reconnect Dropbox.");
+      return;
+    }
+    let entries = data.entries || [];
+    while (data.has_more) {
+      res = await post("list_folder/continue", { cursor: data.cursor });
+      data = await res.json().catch(() => ({}));
+      if (!res.ok) break;
+      entries = entries.concat(data.entries || []);
+    }
+    const mine = entries
+      .filter((e) => e[".tag"] === "file" && /^hunting-info-backup-.*\.json$/.test(e.name))
+      .sort((a, b) => (a.name < b.name ? 1 : a.name > b.name ? -1 : 0)); // timestamped names: newest first
+    for (const f of mine.slice(DROPBOX_KEEP_BACKUPS)) {
+      const del = await post("delete_v2", { path: f.path_lower || f.path_display });
+      if (!del.ok) {
+        dropboxStore(DROPBOX_PRUNE_KEY, "Old backups couldn't be tidied (Dropbox refused the delete).");
+        return;
+      }
+    }
+    dropboxStore(DROPBOX_PRUNE_KEY, null);
+  } catch (err) {
+    console.warn("Couldn't tidy old Dropbox backups (likely offline):", err);
+  }
 }
+
+// Called once each time the app has finished loading the user's data (and
+// again right after connecting Dropbox). Makes the weekly backup if one is due.
+// Only runs once the real data has loaded, so an empty starter dataset is never
+// backed up — and never counts as "this week's backup".
+let dropboxWeeklyRunning = false;
+async function maybeRunWeeklyBackup() {
+  if (dropboxWeeklyRunning || !window.__dataLoaded) return;
+  if (!hasDropboxBackupConfigured() || !dropboxBackupDue()) return;
+  dropboxWeeklyRunning = true;
+  try { await backupToDropbox(window.APP_DATA); } finally { dropboxWeeklyRunning = false; }
+  if (typeof refreshDropboxUi === "function" && document.getElementById("dropboxStatus")) refreshDropboxUi();
+}
+
+// Kept so existing calls to it still work. Backups no longer run on every
+// save — they run weekly (maybeRunWeeklyBackup) or from "Back up now".
+function triggerBackup(dataObject) { /* intentionally does nothing */ }

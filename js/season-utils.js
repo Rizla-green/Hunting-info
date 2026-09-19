@@ -14,6 +14,15 @@ function seasonTypeFor(sectionKey) {
   return SEASON_TYPE_BY_SECTION[sectionKey] || "calendar";
 }
 
+// Oldest date first; entries with no date go last.
+function compareByDateOldestFirst(a, b) {
+  const da = a.date || "", db = b.date || "";
+  if (!da && !db) return 0;
+  if (!da) return 1;
+  if (!db) return -1;
+  return da.localeCompare(db);
+}
+
 // The heading row above a list: "Title (count)" on the left, a small gold
 // gear button on the right that opens that list's column chooser.
 function listHeaderHtml(title, count, cogOnclick) {

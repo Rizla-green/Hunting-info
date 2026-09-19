@@ -143,13 +143,32 @@ const Firearms = {
 
   renameName(oldName, newName) {
     const trimmed = (newName || "").trim();
-    if (!trimmed) return;
     const f = this.getByName(oldName);
     if (!f) return;
+    if (!trimmed || trimmed === oldName) { this.renderDetailBody(oldName); return; }
+    if (this.list().includes(trimmed)) {
+      alert(`There's already a firearm called "${trimmed}". Pick a different name.`);
+      this.renderDetailBody(oldName);
+      return;
+    }
     f.name = trimmed;
+    this.renameOnEntries(oldName, trimmed);
     this.detailName = trimmed;
     persistData();
     this.renderDetailBody(trimmed);
+  },
+
+  // Entries store the firearm by name, so a rename has to be carried through
+  // every place a firearm can be chosen — otherwise its round count and the
+  // dropdown selections would be left pointing at the old name.
+  renameOnEntries(oldName, newName) {
+    const data = window.APP_DATA;
+    Object.keys(data.species || {}).forEach((key) => {
+      (data.species[key] || []).forEach((e) => { if (e.firearm === oldName) e.firearm = newName; });
+    });
+    (data.clay || []).forEach((e) => { if (e.firearm === oldName) e.firearm = newName; });
+    (data.gameShooting || []).forEach((d) => { if (d.firearm === oldName) d.firearm = newName; });
+    (Array.isArray(data.zeroing) ? data.zeroing : []).forEach((s) => { if (s.rifle === oldName) s.rifle = newName; });
   },
 
   // Called from the inline "+ Add new firearm…" option in any Firearm

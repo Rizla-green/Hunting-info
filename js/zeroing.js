@@ -125,7 +125,7 @@ const Zeroing = {
     return `
       ${Popup.header("Adjustment Notes")}
       <div style="padding:0 16px 16px;">
-        <textarea rows="6" style="width:100%; box-sizing:border-box; padding:8px; border-radius:8px; border:1px solid var(--gold-dim); background:var(--navy); color:var(--cream);" placeholder="What did you adjust, and by how much?" onchange="Zeroing.updateDraft('adjustmentNotes',this.value)">${this.draft.adjustmentNotes || ""}</textarea>
+        ${Popup.labeled("Adjustment notes", `<textarea rows="6" style="width:100%; box-sizing:border-box; padding:8px; border-radius:8px; border:1px solid var(--gold-dim); background:var(--navy); color:var(--cream);" placeholder="What did you adjust, and by how much?" onchange="Zeroing.updateDraft('adjustmentNotes',this.value)">${this.draft.adjustmentNotes || ""}</textarea>`, "display:block;")}
         <button class="btn small" style="margin-top:10px;" onclick="Zeroing.closeAdjustmentNotes()">Done</button>
       </div>`;
   },

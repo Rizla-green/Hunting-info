@@ -803,3 +803,14 @@ table.data-table td {
   font-size: 17px; line-height: 1; cursor: pointer;
 }
 .cog-btn:hover { background: var(--navy-light); }
+
+/* ---------- v4.17.2 additions ---------- */
+/* Species sub-heading inside a property on the Deer list */
+.species-subhead {
+  margin: 10px 0 4px;
+  padding-bottom: 3px;
+  color: var(--cream);
+  font-size: 13px;
+  font-weight: bold;
+  border-bottom: 1px solid var(--navy-light);
+}

@@ -442,9 +442,8 @@ const DeerLog = {
 
     el.innerHTML = groups
       .map((g) => {
-        const sorted = g.list.slice().sort((a, b) => (a.date || "").localeCompare(b.date || "")); // oldest first
-        const rows = sorted
-          .map((e) => {
+        const sorted = g.list.slice().sort(compareByDateOldestFirst); // oldest first, undated last
+        const rowHtml = (e) => {
             const idx = entries.indexOf(e);
             const warning = this.checkCompliance(e.farmId, e.species, e.sex, e.date);
             return `
@@ -456,8 +455,14 @@ const DeerLog = {
           <span>${colLabel(e)}</span>
         </div>
       </div>`;
-          })
-          .join("");
+        };
+        // All of one species together (in the app's usual order), oldest at the top of each.
+        const order = [...SPECIES_LIST];
+        sorted.forEach((e) => { if (e.species && !order.includes(e.species)) order.push(e.species); });
+        const block = (title, list) => list.length
+          ? `<div class="species-subhead">${escapeHtml(title)} (${list.length})</div>${list.map(rowHtml).join("")}` : "";
+        const rows = order.map((sp) => block(sp, sorted.filter((e) => e.species === sp))).join("")
+          + block("No species", sorted.filter((e) => !e.species));
         return `
       <div class="section-title" style="margin-top:10px; cursor:pointer;" onclick="DeerLog.openPropertyQuickView('${g.id}')"><h4>${g.name} <span class="grouped-count">(${g.list.length})</span></h4></div>
       ${rows || '<p class="hint">No entries yet for this property.</p>'}`;
@@ -598,26 +603,24 @@ const DeerLog = {
           <input type="checkbox" ${s.present ? "checked" : ""} onchange="DeerLog.setSpeciesField('${sp}','present', this.checked)" />
           ${sp}
         </label>
-        <input type="number" placeholder="Est. population" value="${s.estPopulation || ""}" onchange="DeerLog.setSpeciesField('${sp}','estPopulation', this.value)" style="width:110px;" />
-        <input type="text" placeholder="Target ratio" value="${s.targetRatio || ""}" onchange="DeerLog.setSpeciesField('${sp}','targetRatio', this.value)" style="width:90px;" />
-        <input type="text" placeholder="Notes" value="${s.notes || ""}" onchange="DeerLog.setSpeciesField('${sp}','notes', this.value)" />
+        ${Popup.labeled("Est. population", `<input type="number" placeholder="Est. population" value="${s.estPopulation || ""}" onchange="DeerLog.setSpeciesField('${sp}','estPopulation', this.value)" style="width:110px;" />`, "flex:none;")}
+        ${Popup.labeled("Target ratio", `<input type="text" placeholder="Target ratio" value="${s.targetRatio || ""}" onchange="DeerLog.setSpeciesField('${sp}','targetRatio', this.value)" style="width:90px;" />`, "flex:none;")}
+        ${Popup.labeled("Notes", `<input type="text" placeholder="Notes" value="${s.notes || ""}" onchange="DeerLog.setSpeciesField('${sp}','notes', this.value)" />`)}
       </div>`;
       })
       .join("");
 
     return `
       <div class="section-title"><h4>Property &amp; season details</h4></div>
-      <div class="log-row"><input type="text" placeholder="Season (e.g. 2026/27)" value="${setup.season}" onchange="DeerLog.setSetupField('season', this.value)" /></div>
-      <div class="log-row"><input type="text" placeholder="DMQ holder / manager" value="${setup.manager}" onchange="DeerLog.setSetupField('manager', this.value)" /></div>
-      <div class="log-row"><input type="text" placeholder="Contact number / email" value="${setup.contact}" onchange="DeerLog.setSetupField('contact', this.value)" /></div>
-      <div class="log-row"><input type="number" placeholder="Total land area (ha)" value="${setup.landAreaHa}" onchange="DeerLog.setSetupField('landAreaHa', this.value)" /></div>
-      <div class="log-row">
-        <select onchange="DeerLog.toggleCullPlan(this.value === 'true')">
+      <div class="log-row">${Popup.labeled("Season", `<input type="text" placeholder="Season (e.g. 2026/27)" value="${setup.season}" onchange="DeerLog.setSetupField('season', this.value)" />`)}</div>
+      <div class="log-row">${Popup.labeled("DMQ holder / manager", `<input type="text" placeholder="DMQ holder / manager" value="${setup.manager}" onchange="DeerLog.setSetupField('manager', this.value)" />`)}</div>
+      <div class="log-row">${Popup.labeled("Contact number / email", `<input type="text" placeholder="Contact number / email" value="${setup.contact}" onchange="DeerLog.setSetupField('contact', this.value)" />`)}</div>
+      <div class="log-row">${Popup.labeled("Total land area (ha)", `<input type="number" placeholder="Total land area (ha)" value="${setup.landAreaHa}" onchange="DeerLog.setSetupField('landAreaHa', this.value)" />`)}</div>
+      <div class="log-row">${Popup.labeled("Cull plan", `<select onchange="DeerLog.toggleCullPlan(this.value === 'true')">
           <option value="true" ${setup.hasCullPlan ? "selected" : ""}>Plan in place</option>
           <option value="false" ${!setup.hasCullPlan ? "selected" : ""}>No plan in place</option>
-        </select>
-      </div>
-      <div class="log-row"><textarea class="farm-notes" placeholder="Habitat / management objective" onchange="DeerLog.setSetupField('objective', this.value)">${setup.objective}</textarea></div>
+        </select>`)}</div>
+      <div class="log-row">${Popup.labeled("Habitat / management objective", `<textarea class="farm-notes" placeholder="Habitat / management objective" onchange="DeerLog.setSetupField('objective', this.value)">${setup.objective}</textarea>`, "display:block; width:100%;")}</div>
 
       <div class="section-title" style="margin-top:14px;"><h4>Species present &amp; population</h4></div>
       ${speciesRows}
@@ -762,7 +765,7 @@ const DeerLog = {
 
   renderFlatLog() {
     const entries = this.scopedEntries();
-    const rows = entries
+    const rows = entries.slice().sort(compareByDateOldestFirst) // Cull Record Log: plain date order, oldest first, undated last
       .map((e) => {
         const idx = this.entries().indexOf(e);
         const warning = this.checkCompliance(e.farmId, e.species, e.sex, e.date);

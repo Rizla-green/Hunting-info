@@ -357,7 +357,9 @@ function watchAuthState() {
       // loaded — avoids a blank screen while Firestore responds.
       document.getElementById("menuScreen").classList.remove("hidden");
       await loadAppData();
+      window.__dataLoaded = true;
       renderMenu();
+      maybeRunWeeklyBackup();
     } else {
       window.APP_DATA.currentUser = null;
       document.getElementById("menuScreen").classList.add("hidden");
@@ -397,6 +399,6 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("matchFieldsBtn").addEventListener("click", handleMatchFields);
   document.getElementById("stopMatchFieldsBtn").addEventListener("click", handleStopMatchFields);
   // Coming back from Dropbox's "Allow" screen? Finish the connection and say how it went.
-  handleDropboxRedirect().then((message) => { if (message) alert(message); });
+  handleDropboxRedirect().then((message) => { if (message) { alert(message); maybeRunWeeklyBackup(); } });
   document.getElementById("exportEverythingBtn").addEventListener("click", handleExportEverything);
 });

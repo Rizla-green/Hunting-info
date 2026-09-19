@@ -250,23 +250,23 @@ const GameShooting = {
     const speciesRows = (day.species || [])
       .map((line, lineIdx) => `
         <div class="log-row">
-          <select onchange="GameShooting.updateSpeciesLine(${lineIdx},'species',this.value)">
+          ${Popup.labeled("Species", `<select onchange="GameShooting.updateSpeciesLine(${lineIdx},'species',this.value)">
             ${GAME_BIRD_LIST.map((b) => `<option ${b === line.species ? "selected" : ""}>${b}</option>`).join("")}
-          </select>
-          <input type="number" min="0" placeholder="Shot" value="${line.hits}" onchange="GameShooting.updateSpeciesLine(${lineIdx},'hits',this.value)" style="width:90px;" />
-          <input type="number" min="0" placeholder="Shots taken" value="${line.shotsTaken}" onchange="GameShooting.updateSpeciesLine(${lineIdx},'shotsTaken',this.value)" style="width:100px;" />
-          <button class="icon-btn" onclick="GameShooting.removeSpeciesLine(${lineIdx})">✕</button>
+          </select>`)}
+          ${Popup.labeled("Shot", `<input type="number" min="0" placeholder="Shot" value="${line.hits}" onchange="GameShooting.updateSpeciesLine(${lineIdx},'hits',this.value)" style="width:90px;" />`, "flex:none;")}
+          ${Popup.labeled("Shots taken", `<input type="number" min="0" placeholder="Shots taken" value="${line.shotsTaken}" onchange="GameShooting.updateSpeciesLine(${lineIdx},'shotsTaken',this.value)" style="width:100px;" />`, "flex:none;")}
+          <button class="icon-btn" style="align-self:flex-end;" onclick="GameShooting.removeSpeciesLine(${lineIdx})">✕</button>
         </div>`)
       .join("");
 
     const dayTotalRows = (day.dayTotal || [])
       .map((line, lineIdx) => `
         <div class="log-row">
-          <select onchange="GameShooting.updateDayTotalLine(${lineIdx},'species',this.value)">
+          ${Popup.labeled("Species", `<select onchange="GameShooting.updateDayTotalLine(${lineIdx},'species',this.value)">
             ${[...GAME_BIRD_LIST, "Other"].map((sp) => `<option ${sp === line.species ? "selected" : ""}>${sp}</option>`).join("")}
-          </select>
-          <input type="number" min="0" value="${line.amount || 0}" onchange="GameShooting.updateDayTotalLine(${lineIdx},'amount',this.value)" style="width:80px;" />
-          <button class="icon-btn" onclick="GameShooting.removeDayTotalLine(${lineIdx})">✕</button>
+          </select>`)}
+          ${Popup.labeled("Day total", `<input type="number" min="0" value="${line.amount || 0}" onchange="GameShooting.updateDayTotalLine(${lineIdx},'amount',this.value)" style="width:80px;" />`, "flex:none;")}
+          <button class="icon-btn" style="align-self:flex-end;" onclick="GameShooting.removeDayTotalLine(${lineIdx})">✕</button>
         </div>`)
       .join("");
 
