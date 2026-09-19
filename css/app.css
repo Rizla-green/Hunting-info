@@ -849,3 +849,7 @@ table.data-table td {
   font-weight: 700; font-size: 13px; padding: 3px 8px; border-radius: 5px; white-space: nowrap;
 }
 .leaflet-tooltip.farm-label::before { display: none; }
+
+/* ---------- v4.17.6 additions ---------- */
+/* Place pins: the entry currently being placed */
+.pin-row.pin-selected { outline: 2px solid var(--gold); background: var(--navy-light); }

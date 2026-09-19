@@ -165,9 +165,12 @@ const DeerLog = {
     });
   },
 
-  // what3words typed or pasted by hand: look it up and, if the entry is still on Other, pick the farm/field.
-  setTypedWords(value) {
-    return Fields.applyTypedWords(this, value, true);
+  // what3words typed or pasted by hand is just saved as typed. (Turning typed words into a
+  // map position needs a paid what3words plan, so nothing is looked up. Positions come from
+  // 📍 Auto (GPS) or from Options > Place pins.)
+  saveTypedWords(value) {
+    this.draft.what3words = value;
+    Popup.markDirty();
   },
 
   captureW3w() {
@@ -742,7 +745,7 @@ const DeerLog = {
         <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="DeerLog.addEntryFromCamera(this)" />
       </label>
       <p class="hint">Every entry is checked against the close season for this property's country automatically.</p>
-      <button class="icon-btn" onclick="DeerLog.openFieldSettings()" title="Choose which fields show">⚙</button>
+      ${listHeaderHtml("Entries", this.scopedEntries().length, "DeerLog.openFieldSettings()", "Choose which boxes show in the entry popup")}
       <div class="species-tabs">
         <button class="tab-btn ${this.subView === "log" ? "active" : ""}" onclick="DeerLog.setSubView('log')">Entry Log</button>
         <button class="tab-btn ${this.subView === "by-field" ? "active" : ""}" onclick="DeerLog.setSubView('by-field')">By Field Name</button>
@@ -833,7 +836,7 @@ const DeerLog = {
       ${on("time") ? Popup.labeled("Time", `<input type="time" value="${e.time || ""}" onchange="DeerLog.updateDraft('time',this.value)" />`, "width:100px;") : ""}
     </div>
     ${on("what3words") ? `<div class="log-row">
-      ${Popup.labeled("what3words", `<input type="text" placeholder="///what3words" value="${e.what3words || ""}" onchange="DeerLog.setTypedWords(this.value)" />`)}
+      ${Popup.labeled("what3words", `<input type="text" placeholder="///what3words" value="${e.what3words || ""}" onchange="DeerLog.saveTypedWords(this.value)" />`)}
       <button class="btn small ghost" onclick="DeerLog.captureW3w()">📍 Auto</button>
     </div>` : ""}
     <div class="log-row"><span class="hint" style="margin:0;">🌦️ Weather: ${e.weather || "— (set a location to auto-fill)"}</span></div>

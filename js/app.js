@@ -398,6 +398,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("disconnectDropboxBtn").addEventListener("click", handleDisconnectDropbox);
   document.getElementById("backupNowBtn").addEventListener("click", handleBackupNow);
   document.getElementById("matchFieldsBtn").addEventListener("click", handleMatchFields);
+  document.getElementById("placePinsBtn").addEventListener("click", () => PinPlacer.open());
   document.getElementById("stopMatchFieldsBtn").addEventListener("click", handleStopMatchFields);
   // Coming back from Dropbox's "Allow" screen? Finish the connection and say how it went.
   handleDropboxRedirect().then((message) => { if (message) { alert(message); maybeRunWeeklyBackup(); } });

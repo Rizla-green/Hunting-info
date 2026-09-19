@@ -211,9 +211,12 @@ const SpeciesLog = {
     this.updateDraft("firearm", selectEl.value);
   },
 
-  // what3words typed or pasted by hand: look it up and, if the entry is still on Other, pick the farm/field.
-  setTypedWords(value) {
-    return Fields.applyTypedWords(this, value, FIELD_SECTIONS.includes(this.currentSection));
+  // what3words typed or pasted by hand is just saved as typed. (Turning typed words into a
+  // map position needs a paid what3words plan, so nothing is looked up. Positions come from
+  // 📍 Auto (GPS) or from Options > Place pins.)
+  saveTypedWords(value) {
+    this.draft.what3words = value;
+    Popup.markDirty();
   },
 
   captureW3w() {
@@ -573,7 +576,7 @@ const SpeciesLog = {
     if (w3wEnabled) {
       html += `<div class="log-row">
         <label style="flex:1;"><span class="hint" style="display:block; margin:0 0 2px;">what3words</span>
-          <input type="text" placeholder="///what3words" value="${e.what3words || ""}" onchange="SpeciesLog.setTypedWords(this.value)" />
+          <input type="text" placeholder="///what3words" value="${e.what3words || ""}" onchange="SpeciesLog.saveTypedWords(this.value)" />
         </label>
         <button class="btn small ghost" onclick="SpeciesLog.captureW3w()">📍 Auto</button>
       </div>`;

@@ -25,8 +25,9 @@ function compareByDateOldestFirst(a, b) {
 
 // The heading row above a list: "Title (count)" on the left, a small gold
 // gear button on the right that opens that list's column chooser.
-function listHeaderHtml(title, count, cogOnclick) {
-  return `<div class="list-head"><span>${title} (${count})</span><button class="cog-btn" onclick="${cogOnclick}" title="Choose list columns" aria-label="Choose list columns">⚙</button></div>`;
+function listHeaderHtml(title, count, cogOnclick, cogTitle) {
+  const tip = cogTitle || "Choose list columns";
+  return `<div class="list-head"><span>${title} (${count})</span><button class="cog-btn" onclick="${cogOnclick}" title="${tip}" aria-label="${tip}">⚙</button></div>`;
 }
 
 // Escapes text before it goes into innerHTML (names/descriptions typed by the user).
