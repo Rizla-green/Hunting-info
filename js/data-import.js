@@ -260,6 +260,19 @@ const DataImport = {
     const colIdx = Object.keys(this.mapping).find((idx) => this.mapping[idx] === fieldKey);
     if (colIdx === undefined) return "";
     const v = row[colIdx];
+    if (fieldKey === "notes") {
+      // Any number of columns can be matched to Notes (e.g. "Run" and "Range"); they're joined,
+      // each labelled with its own heading so nothing is lost.
+      const cols = Object.keys(this.mapping).filter((idx) => this.mapping[idx] === "notes");
+      const parts = cols.map((idx) => {
+        const cell = row[idx];
+        const text = cell === null || cell === undefined ? "" : String(cell).trim();
+        if (!text) return "";
+        const head = (this.headers[idx] || "").trim();
+        return cols.length > 1 && head && !/^notes?$/i.test(head) ? `${head}: ${text}` : text;
+      }).filter(Boolean);
+      return parts.join(" · ");
+    }
     if (fieldKey === "date") return parseFlexibleDate(v);   // "" if it can't be read
     if (fieldKey === "time") return this.timeText(v);
     return v === null || v === undefined ? "" : String(v).trim();
@@ -270,6 +283,43 @@ const DataImport = {
     const farms = window.APP_DATA.farms || [];
     const match = farms.find((f) => f.name.trim().toLowerCase() === name.trim().toLowerCase());
     return match ? match.id : "other";
+  },
+
+  // ---------- Translating a sheet's own words into the app's ----------
+  normalizeSpecies(text) {
+    const raw = String(text || "").trim();
+    const key = raw.toLowerCase().replace(/[^a-z ]/g, "").replace(/\s+/g, " ").trim();
+    const map = {
+      "red": "Red deer", "red deer": "Red deer", "fallow": "Fallow deer", "fallow deer": "Fallow deer",
+      "roe": "Roe deer", "roe deer": "Roe deer", "sika": "Sika deer", "sika deer": "Sika deer",
+      "cwd": "Chinese water deer", "chinese water deer": "Chinese water deer", "water deer": "Chinese water deer",
+      "muntjac": "Muntjac", "muntjack": "Muntjac", "goat": "Goat", "goats": "Goat",
+    };
+    return map[key] || raw;
+  },
+  // M/F/Buck/Stag/etc -> the right word for that species. "" if it isn't recognised (never guessed).
+  normalizeSex(species, text) {
+    const t = SPECIES_TERMS[species];
+    const key = String(text || "").trim().toLowerCase();
+    if (!t || !key) return "";
+    if (["m", "male", "buck", "stag"].includes(key)) return t.male;
+    if (["f", "female", "doe", "hind"].includes(key)) return t.female;
+    if (["calf", "fawn", "kid", "young"].includes(key)) return t.young;
+    return "";
+  },
+  goatCategory(text) {
+    const key = String(text || "").trim().toLowerCase();
+    if (["m", "male", "billy"].includes(key)) return "Billy";
+    if (["f", "female", "nanny"].includes(key)) return "Nanny";
+    if (["kid", "young"].includes(key)) return "Kid";
+    return "";
+  },
+  // "14.5KG" -> 14.5 ; "N/A" -> blank ; anything else unreadable -> blank with the original returned as a note.
+  parseWeight(text) {
+    const s = String(text || "").trim();
+    if (!s || /^n\/?a$/i.test(s)) return { value: "", note: "" };
+    const m = s.match(/^(\d+(?:\.\d+)?)\s*(kg|kgs)?$/i);
+    return m ? { value: m[1], note: "" } : { value: "", note: s };
   },
 
   // Which box the category needs to be counted in its section's tables.
@@ -284,19 +334,47 @@ const DataImport = {
     let created = 0;
     let photosAttached = 0;
 
-    // Nothing is skipped and nothing is made up — but say what will be left blank.
-    const noDate = this.rows.filter((r) => !this.cellFor(r, "date")).length;
+    // Rows with a single word in one cell (like the "RED" / "FALLOW" section headings) are not
+    // entries — they're skipped and counted. Every other row is kept. Nothing is made up.
+    const skip = new Set();
+    this.rows.forEach((r, i) => {
+      const filled = r.filter((c) => String(c === null || c === undefined ? "" : c).trim() !== "");
+      if (filled.length === 1 && typeof filled[0] === "string" && this.rows.length > 1) skip.add(i);
+    });
+    const live = this.rows.filter((r, i) => !skip.has(i));
+    const noDate = live.filter((r) => !this.cellFor(r, "date")).length;
     const ck = this.countKeyFor(cat);
-    const noCat = ck ? this.rows.filter((r) => !this.cellFor(r, ck.key)).length : 0;
-    if (noDate || noCat) {
-      const lines = [`About to import ${this.rows.length} rows. Every row will be kept.`];
+    let noCat = ck ? live.filter((r) => !this.cellFor(r, ck.key)).length : 0;
+    let goatRows = 0, noSex = 0;
+    const unknownSp = {};
+    if (cat === "deer") {
+      noCat = 0;
+      live.forEach((r) => {
+        const raw = this.rawCell(r, "species");
+        if (!raw) { noCat++; return; }
+        const sp = this.normalizeSpecies(raw);
+        if (sp === "Goat") { goatRows++; return; }
+        if (!SPECIES_LIST.includes(sp)) { unknownSp[raw] = (unknownSp[raw] || 0) + 1; return; }
+        const rawSex = this.rawCell(r, "sex");
+        if (!this.normalizeSex(sp, rawSex)) noSex++;
+      });
+    }
+    const unknownList = Object.keys(unknownSp);
+    if (skip.size || noDate || noCat || goatRows || noSex || unknownList.length) {
+      const lines = [`About to import ${live.length} rows.`];
+      if (skip.size) lines.push(`• ${skip.size} single-word heading row(s) (like a section title) are skipped — they aren't entries.`);
+      if (goatRows) lines.push(`• ${goatRows} row(s) say Goat. They'll be added to Goats (M → Billy, F → Nanny; anything else left blank), not Deer.`);
       if (noDate) lines.push(`• ${noDate} have no readable date. They'll show as "No date" and won't count towards any season until you give them one.`);
       if (noCat) lines.push(`• ${noCat} have no ${ck.label}. They'll be kept and listed, but can't be counted in the ${ck.label} tables until you fill that in.`);
-      lines.push("", "Continue?");
+      if (unknownList.length) lines.push(`• Species not recognised (kept exactly as typed, not counted until fixed): ${unknownList.join(", ")}.`);
+      if (noSex) lines.push(`• ${noSex} deer have no sex the app can read (blank, "N/A", etc.). They're kept but not counted as male or female.`);
+      lines.push("", "Every other row is kept. Continue?");
       if (!confirm(lines.join("\n"))) return;
     }
+    let goatsAdded = 0;
 
     this.rows.forEach((row, rowIdx) => {
+      if (skip.has(rowIdx)) return;
       const get = (key) => this.cellFor(row, key);
       const photos = this.rowImages[this.rowSourceIdx ? this.rowSourceIdx[rowIdx] : rowIdx] || [];
       photosAttached += photos.length;
@@ -316,15 +394,35 @@ const DataImport = {
         photos,
       };
 
-      if (cat === "deer") {
-        window.APP_DATA.species.deer = window.APP_DATA.species.deer || [];
-        window.APP_DATA.species.deer.push({
+      // Weight: "14.5KG" -> 14.5, "N/A" -> blank; text that can't be read is kept in Notes.
+      const wt = this.parseWeight(get("weight"));
+      if (wt.note) base.notes = [base.notes, `Weight in spreadsheet: ${wt.note}`].filter(Boolean).join(" — ");
+
+      if (cat === "deer" && this.normalizeSpecies(get("species")) === "Goat") {
+        // A Goat row in a Deer sheet goes to Goats.
+        window.APP_DATA.species.goats = window.APP_DATA.species.goats || [];
+        window.APP_DATA.species.goats.push({
           ...base,
-          species: get("species"),
-          sex: get("sex"), age: get("age"),
+          category: this.goatCategory(get("sex")),
           farmId: this.findFarmIdByName(get("farmName")),
           location: get("location"), what3words: get("what3words"), lat: null, lng: null, weather: "",
-          time: get("time"), weight: get("weight"), tag: get("tag"), condition: get("condition"),
+          time: get("time"), weight: wt.value, tag: get("tag"), condition: get("condition"),
+          abnormalities: get("abnormalities"), shotPlacement: get("shotPlacement"),
+          shotBy: get("shotBy"), recordedBy: get("recordedBy"), destination: get("destination"),
+          shots: 1,
+        });
+        goatsAdded++;
+        created++;
+      } else if (cat === "deer") {
+        window.APP_DATA.species.deer = window.APP_DATA.species.deer || [];
+        const sp = this.normalizeSpecies(get("species"));
+        window.APP_DATA.species.deer.push({
+          ...base,
+          species: sp,
+          sex: SPECIES_LIST.includes(sp) ? this.normalizeSex(sp, get("sex")) : get("sex"), age: get("age"),
+          farmId: this.findFarmIdByName(get("farmName")),
+          location: get("location"), what3words: get("what3words"), lat: null, lng: null, weather: "",
+          time: get("time"), weight: wt.value, tag: get("tag"), condition: get("condition"),
           abnormalities: get("abnormalities"), shotPlacement: get("shotPlacement"),
           shotBy: get("shotBy"), recordedBy: get("recordedBy"), destination: get("destination"),
         });
@@ -334,10 +432,10 @@ const DataImport = {
         window.APP_DATA.species[cat] = window.APP_DATA.species[cat] || [];
         window.APP_DATA.species[cat].push({
           ...base,
-          category: get("category"),
+          category: cat === "goats" && this.goatCategory(get("category")) ? this.goatCategory(get("category")) : get("category"),
           farmId: this.findFarmIdByName(get("farmName")),
           location: get("location"), what3words: get("what3words"), lat: null, lng: null, weather: "",
-          time: get("time"), weight: get("weight"), tag: get("tag"), condition: get("condition"),
+          time: get("time"), weight: wt.value, tag: get("tag"), condition: get("condition"),
           abnormalities: get("abnormalities"), shotPlacement: get("shotPlacement"),
           shotBy: get("shotBy"), recordedBy: get("recordedBy"), destination: get("destination"),
           shots: 1,
@@ -351,7 +449,7 @@ const DataImport = {
           category: get("category"),
           farmId: this.findFarmIdByName(get("farmName")),
           area: get("area"), what3words: get("what3words"), lat: null, lng: null, weather: "",
-          shots: parseInt(get("shots"), 10) || 1, ampm: "AM",
+          shots: parseInt(get("shots"), 10) || 1, ampm: "",
         });
         created++;
       } else if (cat === "rabbit" || cat === "rats") {
@@ -418,7 +516,8 @@ const DataImport = {
     Popup.setBody(`
       ${Popup.header("Import complete")}
       <div style="padding:0 16px 16px;">
-        <p>Imported <strong>${created}</strong> ${IMPORT_CATEGORY_LABELS[cat]} entries${photosAttached ? `, with ${photosAttached} photo(s) attached` : ""}.</p>
+        <p>Imported <strong>${created}</strong> ${IMPORT_CATEGORY_LABELS[cat]} entries${goatsAdded ? ` (${goatsAdded} of them were goats and went into Goats)` : ""}${photosAttached ? `, with ${photosAttached} photo(s) attached` : ""}.</p>
+        ${skip.size ? `<p class="hint">${skip.size} heading row(s) were skipped.</p>` : ""}
         <p class="hint">Photos were matched by which row they sit on in the spreadsheet — spot-check a few entries, especially any with multiple photos, before importing the rest of your data.</p>
         <button class="btn popup-save-btn" onclick="Popup.close()">Done</button>
       </div>`);

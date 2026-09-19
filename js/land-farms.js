@@ -133,6 +133,7 @@ const LandAndFarms = {
         { attribution: "Tiles &copy; Esri", maxZoom: 19 }
       ).addTo(this.map);
 
+      MapTools.attach(this.map);
       this.editGroup = L.featureGroup().addTo(this.map);
       this.renderBoundaries(land);
       (land.fields || []).forEach((f) => this.addFieldLayer(f));

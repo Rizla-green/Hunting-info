@@ -38,8 +38,8 @@ const DeerLog = {
       date: new Date().toISOString().slice(0, 10),
       species: SPECIES_LIST[0],
       sex: SPECIES_TERMS[SPECIES_LIST[0]].male,
-      age: "Adult",
-      farmId: this.currentFarmId || farms[0]?.id || "other",
+      age: "",   // blank until chosen — never assumed
+      farmId: this.currentFarmId || "other",   // starts on Other unless opened from inside one farm's Cull Plan
       location: "", what3words: "", lat: null, lng: null, weather: "",
       fieldId: "",   // named field inside the property; auto-set from a pin, changeable by hand
       time: "", weight: "", tag: "", firearm: "", condition: DEER_CONDITIONS[0],
@@ -165,12 +165,19 @@ const DeerLog = {
     });
   },
 
+  // what3words typed or pasted by hand: look it up and, if the entry is still on Other, pick the farm/field.
+  setTypedWords(value) {
+    return Fields.applyTypedWords(this, value, true);
+  },
+
   captureW3w() {
     LocationMatch.captureLocation(async (loc) => {
       if (!loc) return;
       this.draft.what3words = loc.what3words;
       this.draft.lat = loc.lat;
       this.draft.lng = loc.lng;
+      const pinFarm = Fields.propertyForPin(this.draft.farmId, loc.lat, loc.lng); // only replaces "Other"
+      if (pinFarm) this.draft.farmId = pinFarm;
       this.draft.fieldId = Fields.fieldIdForPin(this.draft.farmId, loc);
       Popup.markDirty();
       Popup.setBody(this.renderPopupBody());
@@ -810,6 +817,7 @@ const DeerLog = {
         ${this.sexOptionsFor(e.species).map((s) => `<option ${s === e.sex ? "selected" : ""}>${s}</option>`).join("")}
       </select>`)}
       ${Popup.labeled("Age", `<select onchange="DeerLog.updateDraft('age',this.value)">
+        <option value="" ${!e.age ? "selected" : ""}>Not set</option>
         ${["Adult", "Young"].map((a) => `<option ${a === e.age ? "selected" : ""}>${a}</option>`).join("")}
       </select>`)}
     </div>
@@ -825,7 +833,7 @@ const DeerLog = {
       ${on("time") ? Popup.labeled("Time", `<input type="time" value="${e.time || ""}" onchange="DeerLog.updateDraft('time',this.value)" />`, "width:100px;") : ""}
     </div>
     ${on("what3words") ? `<div class="log-row">
-      ${Popup.labeled("what3words", `<input type="text" placeholder="///what3words" value="${e.what3words || ""}" onchange="DeerLog.updateDraft('what3words',this.value)" />`)}
+      ${Popup.labeled("what3words", `<input type="text" placeholder="///what3words" value="${e.what3words || ""}" onchange="DeerLog.setTypedWords(this.value)" />`)}
       <button class="btn small ghost" onclick="DeerLog.captureW3w()">📍 Auto</button>
     </div>` : ""}
     <div class="log-row"><span class="hint" style="margin:0;">🌦️ Weather: ${e.weather || "— (set a location to auto-fill)"}</span></div>

@@ -22,6 +22,12 @@ const LocationMatch = {
 
   // Returns a farm id, or "other" if the point falls outside every
   // drawn boundary (or no boundaries are drawn yet).
+  // Every outline (as a list of points) that makes up a farm's land.
+  outlinesOf(farm) {
+    const raw = Array.isArray(farm.land?.boundaries) ? farm.land.boundaries.map((b) => b.points) : [farm.land?.boundary];
+    return raw.filter((pts) => pts && pts.length > 2);
+  },
+
   findFarmForPoint(lat, lng) {
     const farms = window.APP_DATA.farms || [];
     for (const farm of farms) {

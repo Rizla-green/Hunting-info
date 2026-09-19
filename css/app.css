@@ -814,3 +814,38 @@ table.data-table td {
   font-weight: bold;
   border-bottom: 1px solid var(--navy-light);
 }
+
+/* ---------- v4.17.4 additions ---------- */
+/* Shown whenever a save to the online database fails (never silent) */
+.save-warning {
+  position: fixed; left: 0; right: 0; top: 0; z-index: 9999;
+  padding: 10px 14px; background: #8b1e1e; color: #fff;
+  font-size: 13px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+}
+.save-warning.hidden { display: none; }
+.save-warning small { opacity: 0.85; }
+
+/* Map tools: place names / roads switches + search box (every map) */
+.map-tools {
+  background: rgba(20, 37, 27, 0.92); color: #f4f1e8;
+  border: 1px solid var(--gold-dim); border-radius: 8px;
+  padding: 6px 8px; font-size: 12px; width: 200px;
+}
+.map-tools-search { display: flex; gap: 4px; }
+.map-tools-search input[type="search"] {
+  flex: 1; min-width: 0; padding: 4px 6px; font-size: 12px;
+  border: 1px solid var(--gold-dim); border-radius: 6px; background: var(--navy); color: #f4f1e8;
+}
+.map-tools-search button {
+  padding: 4px 8px; font-size: 12px; font-weight: bold; border: none; border-radius: 6px;
+  background: var(--gold); color: var(--navy); cursor: pointer;
+}
+.map-tools-status { min-height: 0; margin: 4px 0 2px; font-size: 11px; color: var(--gold); }
+.map-tools label { display: flex; align-items: center; gap: 6px; margin-top: 3px; cursor: pointer; }
+.map-tools input[type="checkbox"] { width: auto; margin: 0; }
+/* Farm names on the All properties map */
+.leaflet-tooltip.farm-label {
+  background: rgba(20, 37, 27, 0.78); color: #fff; border: none; box-shadow: none;
+  font-weight: 700; font-size: 13px; padding: 3px 8px; border-radius: 5px; white-space: nowrap;
+}
+.leaflet-tooltip.farm-label::before { display: none; }

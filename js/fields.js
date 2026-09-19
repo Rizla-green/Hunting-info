@@ -17,6 +17,8 @@
 ===================================================================== */
 
 const FIELD_SECTIONS = ["deer", "fox", "squirrel", "boar", "goats"];
+// Sections whose entries carry a Property — old ones sitting on "Other" can be re-homed.
+const REHOME_SECTIONS = ["deer", "fox", "squirrel", "boar", "goats", "rabbit", "rats", "winged"];
 const FIELD_SECTION_LABELS = { deer: "Deer", fox: "Fox", squirrel: "Squirrels", boar: "Boar", goats: "Goats" };
 
 const Fields = {
@@ -130,6 +132,45 @@ const Fields = {
     return `<div class="log-row">${property}</div>${this.selectRowHtml(entry, sectionName)}`;
   },
 
+  // Property to use for an entry that is still on Other/blank, given a position:
+  // the farm whose outline holds it, or "" if none. Never replaces a farm the
+  // user already chose.
+  propertyForPin(currentFarmId, lat, lng) {
+    if (currentFarmId && currentFarmId !== "other") return "";
+    const farmId = LocationMatch.findFarmForPoint(lat, lng);
+    return farmId && farmId !== "other" ? farmId : "";
+  },
+
+  // Called when what3words is typed/pasted into an entry popup. Looks the
+  // position up and (only if the entry is still on Other/blank) sets the
+  // Property from the farm outlines, then the Field inside it. If the lookup
+  // can't be done, everything else is left exactly as it was. `mod` is the
+  // popup's module (SpeciesLog / DeerLog); `wantField` false for sections
+  // that don't use fields.
+  async applyTypedWords(mod, value, wantField) {
+    const draft = mod.draft;
+    draft.what3words = value;
+    Popup.markDirty();
+    const words = this.cleanWords(value);
+    if (!words) { Popup.setBody(mod.renderPopupBody()); return; } // blank / not in three-word form: nothing to look up
+    const res = await LocationMatch.convertFromWhat3Words(words);
+    if (mod.draft !== draft) return; // popup was closed/replaced while waiting
+    if (!res || res.fatal) {
+      alert(res && res.fatal === "offline"
+        ? "Couldn't look that what3words up (no connection). It's saved as typed — Property and Field are unchanged."
+        : res && res.fatal
+          ? "Couldn't look that what3words up (" + res.fatal + "). It's saved as typed — Property and Field are unchanged."
+          : "That what3words wasn't recognised, so Property and Field are unchanged.");
+      Popup.setBody(mod.renderPopupBody());
+      return;
+    }
+    draft.lat = res.lat; draft.lng = res.lng;
+    const farmId = this.propertyForPin(draft.farmId, res.lat, res.lng);
+    if (farmId) draft.farmId = farmId;
+    if (wantField) draft.fieldId = this.fieldIdForPin(draft.farmId, { lat: res.lat, lng: res.lng, farmId: farmId || draft.farmId });
+    Popup.setBody(mod.renderPopupBody());
+  },
+
   // ---------- Entries that carry a field ----------
   entriesFor(sectionKey) {
     window.APP_DATA.species = window.APP_DATA.species || {};
@@ -209,15 +250,70 @@ const Fields = {
   // text (e.g. imported) get their position looked up first, then saved, so
   // they also start appearing on the shot maps. Never overwrites a field
   // already set. Safe to run again — it resumes where lookups failed.
-  async matchExisting(onProgress) {
+  async matchExisting(onProgress, confirmMove) {
     if (this.running) return null;
     this.running = true;
     this.stopRequested = false;
-    const stats = { checked: 0, matched: 0, noField: 0, noPosition: 0, lookedUp: 0, unreadable: 0, alreadySet: 0, stopped: "" };
+    const stats = { checked: 0, matched: 0, noField: 0, noPosition: 0, lookedUp: 0, unreadable: 0, alreadySet: 0, moved: 0, moveDeclined: false, stopped: "" };
     const cache = {};
     const say = (msg) => { if (onProgress) onProgress(msg, stats); };
+    const lookUp = async (words) => {
+      let res = cache[words];
+      if (res === undefined) {
+        res = await LocationMatch.convertFromWhat3Words(words);
+        stats.lookedUp++;
+        if (!(res && res.fatal)) cache[words] = res;
+      }
+      return res;
+    };
 
     try {
+      // ---- Step 1: entries still on "Other" that sit inside one of your farm outlines.
+      // Works out the plan first, then ASKS before moving anything.
+      const plan = [];
+      const cands = [];
+      REHOME_SECTIONS.forEach((k) => {
+        this.entriesFor(k).forEach((e) => { if (!e.farmId || e.farmId === "other") cands.push(e); });
+      });
+      const haveOutlines = (window.APP_DATA.farms || []).some((f) => (f.land && ((f.land.boundaries && f.land.boundaries.length) || f.land.boundary)));
+      if (cands.length && haveOutlines) {
+        say(`Looking for the right property for ${cands.length} entr${cands.length === 1 ? "y" : "ies"} on Other…`);
+        for (let i = 0; i < cands.length; i++) {
+          if (this.stopRequested) { stats.stopped = "stopped"; break; }
+          const e = cands[i];
+          let lat = e.lat, lng = e.lng, looked = false;
+          if ((lat === null || lat === undefined || lng === null || lng === undefined) && e.what3words) {
+            const words = this.cleanWords(e.what3words);
+            if (!words) continue;
+            const res = await lookUp(words);
+            if (res && res.fatal) { stats.stopped = res.fatal; break; }
+            if (!res || res.lat === undefined) continue;
+            lat = res.lat; lng = res.lng; looked = true;
+          }
+          if (lat === null || lat === undefined || lng === null || lng === undefined) continue;
+          const farmId = LocationMatch.findFarmForPoint(lat, lng);
+          if (farmId && farmId !== "other") plan.push({ e, farmId, lat, lng, looked });
+          if (i % 10 === 0) say(`Looking for properties… ${i + 1} of ${cands.length}`);
+        }
+        if (stats.stopped) { return stats; } // nothing has been changed yet
+        if (plan.length) {
+          const byFarm = {};
+          plan.forEach((m) => { const n = (this.farmById(m.farmId) || {}).name || "a farm"; byFarm[n] = (byFarm[n] || 0) + 1; });
+          const lines = Object.keys(byFarm).map((n) => `${byFarm[n]} to ${n}`).join(", ");
+          const yes = confirmMove ? confirmMove(`${plan.length} entr${plan.length === 1 ? "y" : "ies"} on Other sit inside your farm outlines and would move: ${lines}.\n\nMove them? (Entries that already have a farm are never changed.)`) : false;
+          if (yes) {
+            plan.forEach((m) => {
+              m.e.farmId = m.farmId;
+              if (m.e.lat === null || m.e.lat === undefined) { m.e.lat = m.lat; m.e.lng = m.lng; }
+              stats.moved++;
+            });
+            persistData();
+          } else {
+            stats.moveDeclined = true;
+          }
+        }
+      }
+
       const todo = [];
       FIELD_SECTIONS.forEach((k) => {
         this.entriesFor(k).forEach((e) => {
@@ -268,9 +364,10 @@ const Fields = {
 
   summaryText(stats) {
     if (!stats) return "";
-    const parts = [
-      `Checked ${stats.checked}. Put ${stats.matched} into a field.`,
-    ];
+    const parts = [];
+    if (stats.moved) parts.push(`Moved ${stats.moved} entr${stats.moved === 1 ? "y" : "ies"} from Other to the right property.`);
+    if (stats.moveDeclined) parts.push("You chose not to move entries off Other.");
+    parts.push(`Checked ${stats.checked}. Put ${stats.matched} into a field.`);
     if (stats.noField) parts.push(`${stats.noField} are on a property but outside every field you've drawn.`);
     if (stats.noPosition) parts.push(`${stats.noPosition} have no map position or what3words to go on.`);
     if (stats.unreadable) parts.push(`${stats.unreadable} what3words couldn't be read or looked up.`);

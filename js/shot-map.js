@@ -51,6 +51,7 @@ const ShotLocationMap = {
         "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
         { attribution: "Tiles &copy; Esri", maxZoom: 19 }
       ).addTo(this.map);
+      MapTools.attach(this.map);
       this.renderFilters();
       this.renderPins();
     }, 30);

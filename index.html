@@ -65,10 +65,10 @@
     </section>
 
     <section class="options-section">
-      <h3>Match existing entries to fields</h3>
-      <p class="options-hint">For entries logged before you drew your fields, or imported from a spreadsheet. Goes through every Deer, Fox, Squirrel, Boar and Goats entry with no Field set and puts it in the field its map position falls in. Entries that only have a what3words get their position looked up first (one lookup each, using your what3words allowance), which also puts them on the shot maps. It never changes a field you've already set. Do this after drawing the fields and after importing — and it's safe to run again.</p>
+      <h3>Match existing entries to properties and fields</h3>
+      <p class="options-hint">For entries logged before you drew your farms and fields, added new land, or imported from a spreadsheet. First it finds entries still on "Other" that sit inside one of your farm outlines and asks before moving them to that farm (an entry that already has a farm is never changed). Then it goes through every Deer, Fox, Squirrel, Boar and Goats entry with no Field set and puts it in the field its map position falls in. Entries that only have a what3words get their position looked up first (one lookup each, using your what3words allowance), which also puts them on the shot maps. It never changes a field you've already set. Do this after drawing the fields and after importing — and it's safe to run again.</p>
       <div class="options-row">
-        <button id="matchFieldsBtn">Match entries to fields</button>
+        <button id="matchFieldsBtn">Match entries to properties and fields</button>
         <button id="stopMatchFieldsBtn" class="hidden">Stop</button>
       </div>
       <div id="matchFieldsStatus" class="options-status"></div>
@@ -105,6 +105,8 @@
   <script src="js/field-settings.js"></script>
   <script src="js/location-match.js"></script>
   <script src="js/fields.js"></script>
+  <script src="js/map-tools.js"></script>
+  <script src="js/all-properties-map.js"></script>
   <script src="js/land-farms.js"></script>
   <script src="js/farm-profile.js"></script>
   <script src="js/shot-map.js"></script>

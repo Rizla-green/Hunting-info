@@ -125,8 +125,8 @@ const SpeciesLog = {
     const farms = window.APP_DATA.farms || [];
     return {
       date: new Date().toISOString().slice(0, 10),
-      ampm: "AM",
-      farmId: farms[0]?.id || "other",
+      ampm: "",   // blank until chosen — never assumed
+      farmId: "other",   // every new entry starts on Other until a farm is chosen (or a pin picks one)
       locationText: "",
       area: "",
       location: "",
@@ -138,7 +138,7 @@ const SpeciesLog = {
       weather: "",
       category: def.categories[0],
       shots: 1,
-      lines: FLAT_SECTIONS.includes(this.currentSection) ? [{ category: def.categories[0], shots: 1 }] : undefined,
+      ...(FLAT_SECTIONS.includes(this.currentSection) ? { lines: [{ category: def.categories[0], shots: 1 }] } : {}),
       firearm: "",
       weight: "", tag: "", condition: (typeof DEER_CONDITIONS !== "undefined" ? DEER_CONDITIONS[0] : "Good"),
       abnormalities: "", shotPlacement: "", shotBy: "", recordedBy: "", destination: "",
@@ -211,12 +211,19 @@ const SpeciesLog = {
     this.updateDraft("firearm", selectEl.value);
   },
 
+  // what3words typed or pasted by hand: look it up and, if the entry is still on Other, pick the farm/field.
+  setTypedWords(value) {
+    return Fields.applyTypedWords(this, value, FIELD_SECTIONS.includes(this.currentSection));
+  },
+
   captureW3w() {
     LocationMatch.captureLocation(async (loc) => {
       if (!loc) return;
       this.draft.what3words = loc.what3words;
       this.draft.lat = loc.lat;
       this.draft.lng = loc.lng;
+      const pinFarm = Fields.propertyForPin(this.draft.farmId, loc.lat, loc.lng); // only replaces "Other"
+      if (pinFarm) this.draft.farmId = pinFarm;
       if (FIELD_SECTIONS.includes(this.currentSection)) this.draft.fieldId = Fields.fieldIdForPin(this.draft.farmId, loc);
       Popup.markDirty();
       Popup.setBody(this.renderPopupBody());
@@ -455,7 +462,8 @@ const SpeciesLog = {
     html += `<div class="log-row">
       <label style="flex:1;"><span class="hint" style="display:block; margin:0 0 2px;">Date</span>
       <input type="date" value="${e.date}" onchange="SpeciesLog.updateDraft('date',this.value)" /></label>
-      ${!isFlat ? `<label style="width:70px;"><span class="hint" style="display:block; margin:0 0 2px;">AM/PM</span><select onchange="SpeciesLog.updateDraft('ampm',this.value)">
+      ${!isFlat ? `<label style="width:92px;"><span class="hint" style="display:block; margin:0 0 2px;">AM/PM</span><select onchange="SpeciesLog.updateDraft('ampm',this.value)">
+        <option value="" ${!e.ampm ? "selected" : ""}>Not set</option>
         <option ${e.ampm === "AM" ? "selected" : ""}>AM</option>
         <option ${e.ampm === "PM" ? "selected" : ""}>PM</option>
       </select></label>` : ""}
@@ -565,7 +573,7 @@ const SpeciesLog = {
     if (w3wEnabled) {
       html += `<div class="log-row">
         <label style="flex:1;"><span class="hint" style="display:block; margin:0 0 2px;">what3words</span>
-          <input type="text" placeholder="///what3words" value="${e.what3words || ""}" onchange="SpeciesLog.updateDraft('what3words',this.value)" />
+          <input type="text" placeholder="///what3words" value="${e.what3words || ""}" onchange="SpeciesLog.setTypedWords(this.value)" />
         </label>
         <button class="btn small ghost" onclick="SpeciesLog.captureW3w()">📍 Auto</button>
       </div>`;
