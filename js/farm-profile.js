@@ -75,7 +75,8 @@ const FarmProfile = {
       return;
     }
     this.ensureProfile(farm)[field] = value;
-    if (field === "address") farm.address = value; // keep top-level address in sync for Cull Plan import matching
+    // Keep the top-level address in sync for Cull Plan import matching — as a single line, since the spreadsheet holds it that way.
+    if (field === "address") farm.address = String(value || "").replace(/\s*\n+\s*/g, ", ").trim();
     persistData();
   },
 
@@ -147,7 +148,7 @@ const FarmProfile = {
         <h4>Details</h4>
         <div class="log-row">${L8("Farm name", `<input type="text" placeholder="What you call this farm" value="${val(farm.name)}" onchange="FarmProfile.updateField('name', this.value)" />`)}</div>
         <div class="log-row">${L8("Name of land owner", `<input type="text" placeholder="Land owner" value="${val(profile.landOwner)}" onchange="FarmProfile.updateField('landOwner', this.value)" />`)}</div>
-        <div class="log-row">${L8("Address of farm", `<input type="text" placeholder="Address" value="${val(profile.address)}" onchange="FarmProfile.updateField('address', this.value)" />`)}</div>
+        <div class="log-row">${L8("Address of farm", `<textarea class="farm-notes" rows="4" placeholder="Address — one line per row is fine" onchange="FarmProfile.updateField('address', this.value)">${val(profile.address)}</textarea>`, "display:block; width:100%;")}</div>
         <div class="log-row">${L8("Country", `<select onchange="FarmProfile.updateField('country', this.value)">
             ${COUNTRIES.map((c) => `<option ${c === profile.country ? "selected" : ""}>${c}</option>`).join("")}
           </select>`)}</div>

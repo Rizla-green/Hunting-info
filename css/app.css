@@ -781,3 +781,25 @@ table.data-table td {
 .options-section details { margin-top: 12px; }
 .options-section details summary { cursor: pointer; color: var(--gold-dim); font-size: 13px; }
 .options-section .options-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+
+/* ---------- v4.17.1 additions ---------- */
+/* Gold full-width button for screens outside .species-modal-box (Land and Farms) */
+.btn-gold-block {
+  display: block; width: 100%;
+  padding: 8px 14px; border-radius: 8px; border: none;
+  background: var(--gold); color: var(--navy);
+  font-weight: bold; font-size: 12.5px; font-family: inherit; cursor: pointer;
+}
+/* List heading row: "Entries (12)" + gear button that opens the column chooser */
+.list-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 14px; color: var(--gold); font-size: 14px; font-weight: bold;
+}
+.cog-btn {
+  width: 34px; height: 30px; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; color: var(--gold);
+  border: 1px solid var(--gold-dim); border-radius: 8px;
+  font-size: 17px; line-height: 1; cursor: pointer;
+}
+.cog-btn:hover { background: var(--navy-light); }

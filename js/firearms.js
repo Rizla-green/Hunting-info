@@ -214,9 +214,9 @@ const Firearms = {
           <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">Main Menu</button>
         </div>
         <p class="hint">Manage your firearms here once — every Firearm field elsewhere picks from this same list. Tap one for its full setup and round count.</p>
-        <button class="icon-btn" onclick="Firearms.openColumnSettings()" title="Choose list columns">⚙ List columns</button>
-        <button class="btn small" style="display:block; width:100%; margin-top:10px;" onclick="Firearms.promptAdd()">+ Add firearm</button>
-        <div style="margin-top:8px;">${rows || '<p class="hint">No firearms added yet.</p>'}</div>
+        <button class="btn small" style="display:block; width:100%;" onclick="Firearms.promptAdd()">+ Add firearm</button>
+        ${listHeaderHtml("Firearms", firearms.length, "Firearms.openColumnSettings()")}
+        <div>${rows || '<p class="hint">No firearms added yet.</p>'}</div>
       </div>`;
     overlay.classList.remove("hidden");
   },

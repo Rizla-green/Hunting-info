@@ -135,7 +135,7 @@ function openLandAndFarms() {
         <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">Main Menu</button>
       </div>
       <input type="text" id="farmSearchInput" placeholder="Search farms…" oninput="filterFarmList(this.value)" style="width:100%; box-sizing:border-box; padding:8px 10px; border-radius:8px; border:1px solid var(--gold-dim); background:var(--navy); color:var(--cream); margin-bottom:10px;" />
-      <button class="btn small" style="display:block; width:100%; margin-bottom:10px;" onclick="addFarm()">+ Add farm</button>
+      <button class="btn-gold-block" style="margin-bottom:10px;" onclick="addFarm()">+ Add farm</button>
       <div class="farm-list" id="farmListItems">
         ${farms.map((f) => {
           const row = renderLocationRow(f, "FarmProfile.open", `data-name="${f.name.toLowerCase()}"`);

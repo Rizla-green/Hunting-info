@@ -312,8 +312,8 @@ const DeerLog = {
     const body = document.getElementById("deerSpeciesWideBody");
     if (this.speciesWideTab === "list") {
       body.innerHTML = `
-        <button class="icon-btn" onclick="DeerLog.openColumnSettings()" title="Choose list columns">⚙ List columns</button>
-        <button class="btn small" style="display:block; width:100%; margin-top:10px;" onclick="DeerLog.openAddPopup()">+ Add entry</button>
+        <button class="btn small" style="display:block; width:100%;" onclick="DeerLog.openAddPopup()">+ Add entry</button>
+        ${listHeaderHtml("Entries", this.entries().length, "DeerLog.openColumnSettings()")}
         <p class="hint">Tap a property's name for its total deer shot and the tally by year.</p>
         <div id="deerQuickPropList"></div>`;
       this.renderQuickPropList();

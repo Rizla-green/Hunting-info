@@ -355,14 +355,14 @@ const SpeciesLog = {
       .join("");
 
     return `
-      <button class="icon-btn" onclick="SpeciesLog.openColumnSettings()" title="Choose list columns">⚙ List columns</button>
-      <button class="btn small" style="margin-top:10px; display:block; width:100%;" onclick="SpeciesLog.openAddPopup()">+ Add entry</button>
+      <button class="btn small" style="display:block; width:100%;" onclick="SpeciesLog.openAddPopup()">+ Add entry</button>
       ${W3W_SPECIES.includes(this.currentSection) ? `
       <label class="btn small ghost" style="display:block; text-align:center; margin-top:8px; cursor:pointer;">
         📷 Add via camera
         <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="SpeciesLog.addEntryFromCamera(this)" />
       </label>` : ""}
-      <div style="margin-top:10px;">${groupsHtml || '<p class="hint">No entries yet — tap "+ Add entry" above.</p>'}</div>`;
+      ${listHeaderHtml("Entries", entries.length, "SpeciesLog.openColumnSettings()")}
+      <div>${groupsHtml || '<p class="hint">No entries yet — tap "+ Add entry" above.</p>'}</div>`;
   },
 
   openFarmQuickView(farmId) {
@@ -431,9 +431,9 @@ const SpeciesLog = {
       </div>`)
       .join("");
     return `
-      <button class="icon-btn" onclick="SpeciesLog.openColumnSettings()" title="Choose list columns">⚙ List columns</button>
-      <button class="btn small" style="margin-top:10px; display:block; width:100%;" onclick="SpeciesLog.openAddPopup()">+ Add</button>
-      <div style="margin-top:8px;">${rows || '<p class="hint">No entries yet — tap "+ Add" to log one.</p>'}</div>`;
+      <button class="btn small" style="display:block; width:100%;" onclick="SpeciesLog.openAddPopup()">+ Add</button>
+      ${listHeaderHtml("Entries", this.entries().length, "SpeciesLog.openColumnSettings()")}
+      <div>${rows || '<p class="hint">No entries yet — tap "+ Add" to log one.</p>'}</div>`;
   },
 
   // ---------- The popup editor — shared shape for compact and flat drafts ----------
