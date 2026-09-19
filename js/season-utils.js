@@ -44,6 +44,43 @@ function listEmptyYearHtml(entries, sectionKey, selected) {
   return `<p class="hint">Nothing logged for ${listEffectiveYear(entries, sectionKey, selected)}. Use the year buttons above to see other years.</p>`;
 }
 
+// ---------- Minimised property rows ----------
+// In the species lists each property is one row — name, the number for the selected year and a small
+// Totals button — and its entries stay hidden until the row is tapped (so a long list of properties is
+// a short scroll). Open/closed is remembered while the app is open; everything starts closed.
+const PropertyRows = {
+  openSet: new Set(),
+  isOpen(scope, id) { return this.openSet.has(scope + ":" + id); },
+  toggle(scope, id) {
+    const k = scope + ":" + id;
+    if (this.openSet.has(k)) this.openSet.delete(k); else this.openSet.add(k);
+  },
+  setAll(scope, ids, open) {
+    ids.forEach((id) => { const k = scope + ":" + id; if (open) this.openSet.add(k); else this.openSet.delete(k); });
+  },
+  // Expand all / Collapse all buttons.
+  barHtml(scope, ids, rerenderJs) {
+    if (!ids.length) return "";
+    const ids_ = JSON.stringify(ids).replace(/"/g, "'");
+    return `<div class="prop-bar">
+      <button class="btn small ghost" onclick="PropertyRows.setAll('${scope}', ${ids_}, true); ${rerenderJs}">Expand all</button>
+      <button class="btn small ghost" onclick="PropertyRows.setAll('${scope}', ${ids_}, false); ${rerenderJs}">Collapse all</button>
+    </div>`;
+  },
+  // One property: its row, and (when open) its entries. A property with nothing in the year is muted and doesn't open.
+  blockHtml(scope, id, name, count, rowsHtml, rerenderJs, totalsJs) {
+    const empty = count === 0;
+    const open = !empty && this.isOpen(scope, id);
+    const totals = `<button class="btn small ghost prop-totals" onclick="event.stopPropagation(); ${totalsJs}">Totals</button>`;
+    return `<div class="prop-row ${empty ? "empty" : ""} ${open ? "open" : ""}" ${empty ? "" : `onclick="PropertyRows.toggle('${scope}', '${id}'); ${rerenderJs}"`}>
+        <span class="prop-arrow">${empty ? "" : open ? "▾" : "▸"}</span>
+        <span class="prop-name">${escapeHtml(name)}</span>
+        <span class="grouped-count">(${count})</span>
+        ${totals}
+      </div>${open ? rowsHtml : ""}`;
+  },
+};
+
 // The heading row above a list: "Title (count)" on the left, a small gold
 // gear button on the right that opens that list's column chooser.
 function listHeaderHtml(title, count, cogOnclick, cogTitle) {

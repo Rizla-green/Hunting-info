@@ -455,7 +455,7 @@ const DeerLog = {
     const cols = this.listColumns();
     const colLabel = (e) => cols.map((c) => c === "species" ? e.species : c === "location" ? (e.location || "") : c === "field" ? Fields.nameFor(e.farmId, e.fieldId) : c === "firearm" ? (e.firearm || "") : c === "notes" ? (e.notes || "") : "").filter(Boolean).join(" · ");
 
-    el.innerHTML = groups
+    el.innerHTML = PropertyRows.barHtml("deer", groups.map((g) => g.id), "DeerLog.renderQuickPropList()") + groups
       .map((g) => {
         const sorted = g.list.slice().sort(compareByDateOldestFirst); // oldest first, undated last
         const rowHtml = (e) => {
@@ -464,7 +464,7 @@ const DeerLog = {
             return `
       <div class="log-row-card compact-row" onclick="DeerLog.openEditPopup(${idx})" style="cursor:pointer;">
         ${warning ? `<div class="compliance-warning">⚠ ${warning}</div>` : ""}
-        <div class="log-row compact-summary">
+        <div class="log-row compact-summary cs3">
           <span>${displayDate(e.date)}</span>
           <span>${e.sex}</span>
           <span>${colLabel(e)}</span>
@@ -478,9 +478,7 @@ const DeerLog = {
           ? `<div class="species-subhead">${escapeHtml(title)} (${list.length})</div>${list.map(rowHtml).join("")}` : "";
         const rows = order.map((sp) => block(sp, sorted.filter((e) => e.species === sp))).join("")
           + block("No species", sorted.filter((e) => !e.species));
-        return `
-      <div class="section-title" style="margin-top:10px; cursor:pointer;" onclick="DeerLog.openPropertyQuickView('${g.id}')"><h4>${g.name} <span class="grouped-count">(${g.list.length})</span></h4></div>
-      ${rows || '<p class="hint">No entries yet for this property.</p>'}`;
+        return PropertyRows.blockHtml("deer", g.id, g.name, g.list.length, rows, "DeerLog.renderQuickPropList()", `DeerLog.openPropertyQuickView('${g.id}')`);
       })
       .join("") || '<p class="hint">No entries yet — tap "+ Add entry" above.</p>';
   },
@@ -789,7 +787,7 @@ const DeerLog = {
         return `
       <div class="log-row-card compact-row" onclick="DeerLog.openEditPopup(${idx})" style="cursor:pointer;">
         ${warning ? `<div class="compliance-warning">⚠ ${warning}</div>` : ""}
-        <div class="log-row compact-summary">
+        <div class="log-row compact-summary cs3">
           <span>${displayDate(e.date)}</span>
           <span>${e.sex}</span>
           <span>${e.location || ""}</span>
@@ -899,7 +897,7 @@ const DeerLog = {
     return keys
       .map((key) => {
         const list = groups[key];
-        const rows = list.map((e) => `<div class="grouped-row"><span>${displayDate(e.date)}</span><span>${e.species}</span><span>${e.sex}</span><span>${e.age}</span></div>`).join("");
+        const rows = list.map((e) => `<div class="grouped-row aligned"><span>${displayDate(e.date)}</span><span>${e.species}</span><span>${e.sex}</span><span>${e.age}</span></div>`).join("");
         return `<div class="grouped-block"><h4>${key} <span class="grouped-count">(${list.length})</span></h4>${rows}</div>`;
       })
       .join("");

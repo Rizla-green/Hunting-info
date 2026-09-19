@@ -233,7 +233,7 @@ const GameShooting = {
         const t = this.dayTotals(day);
         return `
       <div class="log-row-card compact-row" onclick="GameShooting.openEditPopup(${idx})" style="cursor:pointer;">
-        <div class="log-row compact-summary">
+        <div class="log-row compact-summary cs-g">
           <span>${displayDate(day.date)}</span>
           <span>${day.shootName || day.location || ""}</span>
           <span>${t.hits} shot</span>

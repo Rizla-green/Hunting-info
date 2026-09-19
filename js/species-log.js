@@ -347,10 +347,10 @@ const SpeciesLog = {
     if (other.length) groups.push({ id: "other", name: "Other", list: other });
 
     const cols = this.listColumns();
-    const colLabel = (e) => cols.map((c) => c === "category" ? e.category : c === "area" ? (e.area || "") : c === "location" ? (e.location || "") : c === "firearm" ? (e.firearm || "") : c === "condition" ? (e.condition || "") : c === "field" ? Fields.nameFor(e.farmId, e.fieldId) : c === "notes" ? (e.notes || "") : "").filter(Boolean).join(" · ");
+    const colLabel = (e, skip) => cols.filter((c) => c !== skip).map((c) => c === "category" ? e.category : c === "area" ? (e.area || "") : c === "location" ? (e.location || "") : c === "firearm" ? (e.firearm || "") : c === "condition" ? (e.condition || "") : c === "field" ? Fields.nameFor(e.farmId, e.fieldId) : c === "notes" ? (e.notes || "") : "").filter(Boolean).join(" · ");
 
+    const scope = this.currentSection;
     const groupsHtml = groups
-      .filter((g) => g.list.length > 0)
       .map((g) => {
         const sorted = g.list.slice().sort((a, b) => (a.date || "").localeCompare(b.date || "")); // oldest first
         const rows = sorted
@@ -358,18 +358,18 @@ const SpeciesLog = {
             const idx = entries.indexOf(e);
             return `
       <div class="log-row-card compact-row" onclick="SpeciesLog.openEditPopup(${idx})" style="cursor:pointer;">
-        <div class="log-row compact-summary">
+        <div class="log-row compact-summary cs3">
           <span>${displayDate(e.date)}</span>
-          <span>${colLabel(e)}</span>
+          <span>${cols.includes("category") ? escapeHtml(e.category || "") : ""}</span>
+          <span>${colLabel(e, "category")}</span>
         </div>
       </div>`;
           })
           .join("");
-        return `
-      <div class="section-title" style="margin-top:14px; cursor:pointer;" onclick="SpeciesLog.openFarmQuickView('${g.id}')"><h4>${g.name} <span class="grouped-count">(${g.list.length})</span></h4></div>
-      ${rows}`;
+        return PropertyRows.blockHtml(scope, g.id, g.name, g.list.length, rows, "SpeciesLog.renderBody()", `SpeciesLog.openFarmQuickView('${g.id}')`);
       })
       .join("");
+    const groupIds = groups.map((g) => g.id);
 
     return `
       <button class="btn small" style="display:block; width:100%;" onclick="SpeciesLog.openAddPopup()">+ Add entry</button>
@@ -381,7 +381,8 @@ const SpeciesLog = {
       ${listYearTabsHtml(entries, this.currentSection, this.selectedYear, "SpeciesLog.setYear")}
       ${listHeaderHtml("Entries", shown.length, "SpeciesLog.openColumnSettings()")}
       ${shown.length ? "" : listEmptyYearHtml(entries, this.currentSection, this.selectedYear)}
-      <div>${groupsHtml || '<p class="hint">No entries yet — tap "+ Add entry" above.</p>'}</div>`;
+      ${PropertyRows.barHtml(scope, groupIds, "SpeciesLog.renderBody()")}
+      <div>${groupsHtml || '<p class="hint">No properties yet — tap "+ Add entry" above.</p>'}</div>`;
   },
 
   openFarmQuickView(farmId) {
@@ -445,7 +446,7 @@ const SpeciesLog = {
     const rows = all
       .map((e, idx) => inYear.has(e) ? `
       <div class="log-row-card compact-row" onclick="SpeciesLog.openEditPopup(${idx})" style="cursor:pointer;">
-        <div class="log-row compact-summary">
+        <div class="log-row compact-summary cs2">
           <span>${displayDate(e.date)}</span>
           <span>${colLabel(e)}</span>
         </div>

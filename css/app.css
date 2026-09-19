@@ -853,3 +853,38 @@ table.data-table td {
 /* ---------- v4.17.6 additions ---------- */
 /* Place pins: the entry currently being placed */
 .pin-row.pin-selected { outline: 2px solid var(--gold); background: var(--navy-light); }
+
+/* ---------- v4.17.9 additions ---------- */
+/* Entry rows: date and sex/category sit in fixed columns so they line up down the list */
+.compact-summary.cs3 { display: grid; grid-template-columns: 6.4em 4.6em 1fr; column-gap: 8px; align-items: baseline; justify-content: stretch; }
+.compact-summary.cs3 span:nth-child(2) { flex: none; text-align: left; }
+.compact-summary.cs2 { display: grid; grid-template-columns: 6.4em 1fr; column-gap: 8px; align-items: baseline; justify-content: stretch; }
+.compact-summary.cs-g { display: grid; grid-template-columns: 6.4em 1fr auto; column-gap: 8px; align-items: baseline; justify-content: stretch; }
+.compact-summary.cs-g span:nth-child(2) { flex: none; text-align: left; }
+.grouped-row.aligned { display: grid; grid-template-columns: 6.4em 1fr 4.6em auto; column-gap: 8px; }
+
+/* Minimised property rows (species lists) */
+.prop-bar { display: flex; gap: 8px; margin: 10px 0 0; }
+.prop-bar .btn.small { margin-top: 0; }
+.prop-row {
+  display: flex; align-items: center; gap: 8px;
+  margin: 10px 0 4px; padding: 10px;
+  border: 1px solid var(--gold-dim); border-radius: 10px; background: var(--navy);
+  cursor: pointer;
+}
+.prop-row.open { background: var(--navy-light); }
+.prop-row.empty { opacity: 0.55; cursor: default; }
+.prop-arrow { width: 1em; color: var(--gold); text-align: center; }
+.prop-name { color: var(--gold); font-weight: bold; font-size: 14px; }
+.prop-totals { margin-left: auto; margin-top: 0 !important; }
+
+/* Buttons in popups and full-screen panels get the app's gold style (they were the browser's plain white) */
+.popup-card .btn.small, .modal-box .btn.small {
+  padding: 8px 14px; border-radius: 8px; border: none;
+  background: var(--gold); color: var(--navy);
+  font-weight: bold; font-size: 12.5px; cursor: pointer;
+}
+.btn.ghost.small, .btn.secondary.small, .popup-card .btn.ghost.small, .popup-card .btn.secondary.small, .modal-box .btn.ghost.small, .modal-box .btn.secondary.small {
+  background: none; border: 1px solid var(--gold-dim); color: var(--gold);
+  padding: 6px 10px; border-radius: 8px; font-size: 12px; font-weight: normal; cursor: pointer;
+}

@@ -200,7 +200,7 @@ const ClayShooting = {
         const pct = (parseInt(e.clays, 10) || 0) > 0 ? Math.round(((parseInt(e.hits, 10) || 0) / parseInt(e.clays, 10)) * 100) : 0;
         return `
       <div class="log-row-card compact-row" onclick="ClayShooting.openEditPopup(${idx})" style="cursor:pointer;">
-        <div class="log-row compact-summary">
+        <div class="log-row compact-summary cs-g">
           <span>${displayDate(e.date)}</span>
           <span>${e.location || ""}</span>
           <span>${e.clays || 0} clays, ${e.hits || 0} hits (${pct}%)</span>

@@ -184,7 +184,7 @@ const Zeroing = {
         const idx = this.sessions().indexOf(s);
         return `
       <div class="log-row-card compact-row" onclick="Zeroing.openEditPopup(${idx})" style="cursor:pointer;">
-        <div class="log-row compact-summary">
+        <div class="log-row compact-summary cs-g">
           <span>${displayDate(s.date)}</span>
           <span>${s.rifle || ""}</span>
           <span>${s.location || ""}</span>
