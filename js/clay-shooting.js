@@ -197,7 +197,7 @@ const ClayShooting = {
         return `
       <div class="log-row-card compact-row" onclick="ClayShooting.openEditPopup(${idx})" style="cursor:pointer;">
         <div class="log-row compact-summary">
-          <span>${e.date}</span>
+          <span>${displayDate(e.date)}</span>
           <span>${e.location || ""}</span>
           <span>${e.clays || 0} clays, ${e.hits || 0} hits (${pct}%)</span>
         </div>

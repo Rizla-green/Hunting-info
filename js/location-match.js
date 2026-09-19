@@ -45,8 +45,30 @@ const LocationMatch = {
     }
   },
 
+  // Reverse lookup: three words -> position. Returns {lat, lng} on success,
+  // null if those words don't exist / can't be read, or {fatal: reason} when
+  // the lookup can't work at all right now ("offline", or a key/allowance
+  // problem) so a bulk run can stop instead of failing every row.
+  async convertFromWhat3Words(words) {
+    const clean = String(words || "").trim().replace(/^\/+/, "");
+    if (!clean) return null;
+    try {
+      const url = `https://api.what3words.com/v3/convert-to-coordinates?words=${encodeURIComponent(clean)}&key=${W3W_API_KEY}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data && data.coordinates) return { lat: data.coordinates.lat, lng: data.coordinates.lng };
+      const code = data && data.error && data.error.code;
+      if (["MissingKey", "InvalidKey", "SuspendedKey", "QuotaExceeded", "ForbiddenKey"].includes(code)) return { fatal: code };
+      return null;
+    } catch (err) {
+      console.warn("what3words reverse lookup failed (likely offline):", err);
+      return { fatal: "offline" };
+    }
+  },
+
   // Captures the device's current GPS position, converts it to w3w, and
-  // matches it to a farm boundary, returning {lat, lng, what3words, farmId}.
+  // matches it to a farm boundary (and, inside that, a named field),
+  // returning {lat, lng, what3words, farmId, fieldId}.
   // Falls back to a manual prompt if GPS isn't available or fails.
   captureLocation(onComplete) {
     if (!navigator.geolocation) {
@@ -59,7 +81,8 @@ const LocationMatch = {
         const lat = pos.coords.latitude, lng = pos.coords.longitude;
         const what3words = await this.convertToWhat3Words(lat, lng);
         const farmId = this.findFarmForPoint(lat, lng);
-        onComplete({ lat, lng, what3words, farmId });
+        const field = (farmId !== "other" && typeof Fields !== "undefined") ? Fields.findForPoint(farmId, lat, lng) : null;
+        onComplete({ lat, lng, what3words, farmId, fieldId: field ? field.id : "" });
       },
       () => {
         alert("Couldn't get your location — check location permissions, or place the pin manually on the Land and Farms map.");

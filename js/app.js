@@ -135,13 +135,13 @@ function openLandAndFarms() {
         <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">Main Menu</button>
       </div>
       <input type="text" id="farmSearchInput" placeholder="Search farms…" oninput="filterFarmList(this.value)" style="width:100%; box-sizing:border-box; padding:8px 10px; border-radius:8px; border:1px solid var(--gold-dim); background:var(--navy); color:var(--cream); margin-bottom:10px;" />
+      <button class="btn small" style="display:block; width:100%; margin-bottom:10px;" onclick="addFarm()">+ Add farm</button>
       <div class="farm-list" id="farmListItems">
         ${farms.map((f) => {
           const row = renderLocationRow(f, "FarmProfile.open", `data-name="${f.name.toLowerCase()}"`);
           return row.replace('</div>', `<button class="btn ghost small" onclick="event.stopPropagation(); openSharingModal('${f.id}')">Shared with</button></div>`);
         }).join("")}
       </div>
-      <button class="btn small" style="margin-top:12px;" onclick="addFarm()">+ Add farm</button>
     </div>`;
   overlay.classList.remove("hidden");
 }
@@ -197,6 +197,8 @@ function openOptions() {
   document.getElementById("menuScreen").classList.add("hidden");
   document.getElementById("optionsScreen").classList.remove("hidden");
   document.getElementById("dropboxTokenInput").value = getDropboxToken();
+  refreshDropboxUi();
+  document.getElementById("matchFieldsStatus").textContent = "";
 }
 
 function closeOptions() {
@@ -204,12 +206,61 @@ function closeOptions() {
   document.getElementById("menuScreen").classList.remove("hidden");
 }
 
+// Shows whether Dropbox is connected, when the last backup ran, and which buttons make sense.
+function refreshDropboxUi() {
+  const info = dropboxStatusInfo();
+  const el = document.getElementById("dropboxStatus");
+  el.textContent = info.text;
+  el.className = "options-status " + (info.ok ? "ok" : "bad");
+  const connected = hasDropboxRefreshToken();
+  document.getElementById("connectDropboxBtn").textContent = connected ? "Reconnect Dropbox" : "Connect Dropbox";
+  document.getElementById("disconnectDropboxBtn").classList.toggle("hidden", !connected);
+  document.getElementById("backupNowBtn").classList.toggle("hidden", !hasDropboxBackupConfigured());
+}
+
 function saveDropboxToken() {
   const token = document.getElementById("dropboxTokenInput").value;
   setDropboxToken(token);
-  document.getElementById("dropboxStatus").textContent = token.trim()
-    ? "Saved — backups will run automatically on every save."
-    : "Cleared — auto-backup is off until a token is entered.";
+  refreshDropboxUi();
+}
+
+async function handleBackupNow() {
+  const el = document.getElementById("dropboxStatus");
+  el.className = "options-status";
+  el.textContent = "Backing up…";
+  const result = await backupToDropbox(window.APP_DATA);
+  if (!result.ok) {
+    el.textContent = result.reason === "network"
+      ? "Couldn't reach Dropbox — check your internet connection and try again."
+      : dropboxStatusInfo().text;
+    el.className = "options-status bad";
+    return;
+  }
+  refreshDropboxUi();
+}
+
+async function handleDisconnectDropbox() {
+  if (!confirm("Disconnect Dropbox on this device? Backups will stop until you connect again.")) return;
+  await disconnectDropbox();
+  refreshDropboxUi();
+}
+
+// Options → "Match entries to fields"
+async function handleMatchFields() {
+  if (Fields.running) return;
+  const status = document.getElementById("matchFieldsStatus");
+  const runBtn = document.getElementById("matchFieldsBtn");
+  const stopBtn = document.getElementById("stopMatchFieldsBtn");
+  runBtn.classList.add("hidden");
+  stopBtn.classList.remove("hidden");
+  status.className = "options-status";
+  const stats = await Fields.matchExisting((msg) => { status.textContent = msg; });
+  runBtn.classList.remove("hidden");
+  stopBtn.classList.add("hidden");
+  status.textContent = Fields.summaryText(stats);
+}
+function handleStopMatchFields() {
+  Fields.stopRequested = true;
 }
 
 function handleExportEverything() {
@@ -340,5 +391,12 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("optionsButton").addEventListener("click", openOptions);
   document.getElementById("optionsBack").addEventListener("click", closeOptions);
   document.getElementById("saveDropboxToken").addEventListener("click", saveDropboxToken);
+  document.getElementById("connectDropboxBtn").addEventListener("click", startDropboxConnect);
+  document.getElementById("disconnectDropboxBtn").addEventListener("click", handleDisconnectDropbox);
+  document.getElementById("backupNowBtn").addEventListener("click", handleBackupNow);
+  document.getElementById("matchFieldsBtn").addEventListener("click", handleMatchFields);
+  document.getElementById("stopMatchFieldsBtn").addEventListener("click", handleStopMatchFields);
+  // Coming back from Dropbox's "Allow" screen? Finish the connection and say how it went.
+  handleDropboxRedirect().then((message) => { if (message) alert(message); });
   document.getElementById("exportEverythingBtn").addEventListener("click", handleExportEverything);
 });

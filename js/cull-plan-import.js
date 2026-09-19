@@ -130,15 +130,10 @@ const CullPlanImport = {
     this.renderSummary(rows.length, farmsSeen.size);
   },
 
+  // A blank or unreadable date stays blank (shown as "No date") rather than
+  // being replaced with today's date — see parseFlexibleDate in season-utils.js.
   parseDate(value) {
-    if (!value) return new Date().toISOString().slice(0, 10);
-    // Excel dates can arrive as serial numbers or strings depending on export settings.
-    if (typeof value === "number") {
-      const parsed = XLSX.SSF.parse_date_code(value);
-      return `${parsed.y}-${String(parsed.m).padStart(2, "0")}-${String(parsed.d).padStart(2, "0")}`;
-    }
-    const asDate = new Date(value);
-    return isNaN(asDate) ? new Date().toISOString().slice(0, 10) : asDate.toISOString().slice(0, 10);
+    return parseFlexibleDate(value);
   },
 
   renderSummary(rowCount, farmCount) {

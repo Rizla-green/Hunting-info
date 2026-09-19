@@ -44,13 +44,13 @@ const RICH_SECTIONS = ["boar", "goats"]; // same field set as Deer (Location/Wei
 
 // Candidate columns offered by each section's "list columns" cog, and sensible defaults.
 const LIST_COLUMN_CANDIDATES_RICH = [
-  { key: "category", label: "Category" }, { key: "location", label: "Location" },
+  { key: "category", label: "Category" }, { key: "location", label: "Location" }, { key: "field", label: "Field" },
   { key: "firearm", label: "Weapon" }, { key: "condition", label: "Condition" }, { key: "notes", label: "Notes" },
 ];
 
 // Candidate columns offered by each section's "list columns" cog, and sensible defaults.
 const LIST_COLUMN_CANDIDATES_COMPACT = [
-  { key: "category", label: "Category" }, { key: "area", label: "Area" },
+  { key: "category", label: "Category" }, { key: "area", label: "Area" }, { key: "field", label: "Field" },
   { key: "firearm", label: "Weapon" }, { key: "notes", label: "Notes" },
 ];
 const LIST_COLUMN_CANDIDATES_FLAT = [
@@ -134,6 +134,7 @@ const SpeciesLog = {
       what3words: "",
       lat: null,
       lng: null,
+      fieldId: "",   // named field inside the farm (Fox/Squirrel/Boar/Goats only); auto-set from a pin
       weather: "",
       category: def.categories[0],
       shots: 1,
@@ -159,6 +160,7 @@ const SpeciesLog = {
   },
   updateDraft(field, value) {
     this.draft[field] = value;
+    if (field === "farmId") this.draft.fieldId = Fields.validFieldId(value, this.draft.fieldId); // a field only belongs to its own farm
     Popup.markDirty();
     Popup.setBody(this.renderPopupBody());
   },
@@ -215,6 +217,7 @@ const SpeciesLog = {
       this.draft.what3words = loc.what3words;
       this.draft.lat = loc.lat;
       this.draft.lng = loc.lng;
+      if (FIELD_SECTIONS.includes(this.currentSection)) this.draft.fieldId = Fields.fieldIdForPin(this.draft.farmId, loc);
       Popup.markDirty();
       Popup.setBody(this.renderPopupBody());
       this.draft.weather = await fetchWeatherForEntry(loc.lat, loc.lng, this.draft.date);
@@ -327,19 +330,19 @@ const SpeciesLog = {
     if (other.length) groups.push({ id: "other", name: "Other", list: other });
 
     const cols = this.listColumns();
-    const colLabel = (e) => cols.map((c) => c === "category" ? e.category : c === "area" ? (e.area || "") : c === "location" ? (e.location || "") : c === "firearm" ? (e.firearm || "") : c === "condition" ? (e.condition || "") : c === "notes" ? (e.notes || "") : "").filter(Boolean).join(" · ");
+    const colLabel = (e) => cols.map((c) => c === "category" ? e.category : c === "area" ? (e.area || "") : c === "location" ? (e.location || "") : c === "firearm" ? (e.firearm || "") : c === "condition" ? (e.condition || "") : c === "field" ? Fields.nameFor(e.farmId, e.fieldId) : c === "notes" ? (e.notes || "") : "").filter(Boolean).join(" · ");
 
     const groupsHtml = groups
       .filter((g) => g.list.length > 0)
       .map((g) => {
-        const sorted = g.list.slice().sort((a, b) => a.date.localeCompare(b.date)); // oldest first
+        const sorted = g.list.slice().sort((a, b) => (a.date || "").localeCompare(b.date || "")); // oldest first
         const rows = sorted
           .map((e) => {
             const idx = entries.indexOf(e);
             return `
       <div class="log-row-card compact-row" onclick="SpeciesLog.openEditPopup(${idx})" style="cursor:pointer;">
         <div class="log-row compact-summary">
-          <span>${e.date}</span>
+          <span>${displayDate(e.date)}</span>
           <span>${colLabel(e)}</span>
         </div>
       </div>`;
@@ -380,7 +383,8 @@ const SpeciesLog = {
     ReferenceInfo.showModal(name, `
       ${renderStatCards([{ value: total, label: "Total" }])}
       <div class="table-scroll" style="margin-top:10px;"><table class="data-table"><tr><th>Season year</th><th>Total</th><th></th></tr>${rows}</table></div>
-      ${W3W_SPECIES.includes(this.currentSection) ? `<button class="btn secondary small" style="width:100%; margin-top:14px;" onclick="ShotLocationMap.open('${this.currentSection}','${farmId}')">📍 Total kills map — all seasons</button>` : ""}`);
+      ${W3W_SPECIES.includes(this.currentSection) ? `<button class="btn secondary small" style="width:100%; margin-top:14px;" onclick="ShotLocationMap.open('${this.currentSection}','${farmId}')">📍 Total kills map — all seasons</button>` : ""}
+      ${FIELD_SECTIONS.includes(this.currentSection) && farmId !== "other" ? Fields.byFieldBlockHtml(farmId, entries, this.currentSection, (e) => this.entryTotal(e)) : ""}`);
   },
 
   addEntryFromCamera(inputEl) {
@@ -391,6 +395,7 @@ const SpeciesLog = {
         entry.lat = loc.lat;
         entry.lng = loc.lng;
         entry.farmId = loc.farmId;
+        if (FIELD_SECTIONS.includes(this.currentSection)) entry.fieldId = loc.fieldId || "";
       }
       entry.photos = [photoDataUrl];
       this.entries().push(entry);
@@ -420,7 +425,7 @@ const SpeciesLog = {
       .map((e, idx) => `
       <div class="log-row-card compact-row" onclick="SpeciesLog.openEditPopup(${idx})" style="cursor:pointer;">
         <div class="log-row compact-summary">
-          <span>${e.date}</span>
+          <span>${displayDate(e.date)}</span>
           <span>${colLabel(e)}</span>
         </div>
       </div>`)
@@ -538,12 +543,7 @@ const SpeciesLog = {
           <input type="text" placeholder="Destination" value="${e.destination || ""}" onchange="SpeciesLog.updateDraft('destination',this.value)" />
         </label>
       </div>
-      <div class="log-row">
-        <select onchange="SpeciesLog.updateDraft('farmId',this.value)">
-          ${farms.map((f) => `<option value="${f.id}" ${e.farmId === f.id ? "selected" : ""}>${f.name}</option>`).join("")}
-          <option value="other" ${!e.farmId || e.farmId === "other" ? "selected" : ""}>Other</option>
-        </select>
-      </div>`;
+      ${Fields.propertyAndFieldHtml(e, "SpeciesLog")}`;
     } else {
       html += `<div class="log-row">
         <label style="flex:1;"><span class="hint" style="display:block; margin:0 0 2px;">Category</span>
@@ -559,12 +559,7 @@ const SpeciesLog = {
           <input type="number" min="0" placeholder="Shots" value="${e.shots}" onchange="SpeciesLog.updateDraft('shots',this.value)" />
         </label>
       </div>
-      <div class="log-row">
-        <select onchange="SpeciesLog.updateDraft('farmId',this.value)">
-          ${farms.map((f) => `<option value="${f.id}" ${e.farmId === f.id ? "selected" : ""}>${f.name}</option>`).join("")}
-          <option value="other" ${!e.farmId || e.farmId === "other" ? "selected" : ""}>Other</option>
-        </select>
-      </div>`;
+      ${Fields.propertyAndFieldHtml(e, "SpeciesLog")}`;
     }
 
     if (w3wEnabled) {

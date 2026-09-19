@@ -41,6 +41,7 @@ const DeerLog = {
       age: "Adult",
       farmId: this.currentFarmId || farms[0]?.id || "other",
       location: "", what3words: "", lat: null, lng: null, weather: "",
+      fieldId: "",   // named field inside the property; auto-set from a pin, changeable by hand
       time: "", weight: "", tag: "", firearm: "", condition: DEER_CONDITIONS[0],
       abnormalities: "", shotPlacement: "", shotBy: "", recordedBy: "", destination: "",
       photos: [], notes: "",
@@ -61,7 +62,12 @@ const DeerLog = {
   },
   updateDraft(field, value) {
     this.draft[field] = value;
-    if (field === "species") this.draft.sex = SPECIES_TERMS[value].male;
+    if (field === "species" && SPECIES_TERMS[value]) {
+      // Keep a sex that already suits the new species (e.g. an imported "Doe"); otherwise start on the male term.
+      const t = SPECIES_TERMS[value];
+      if (![t.male, t.female, t.young].includes(this.draft.sex)) this.draft.sex = t.male;
+    }
+    if (field === "farmId") this.draft.fieldId = Fields.validFieldId(value, this.draft.fieldId); // a field only belongs to its own property
     Popup.markDirty();
     Popup.setBody(this.renderPopupBody());
   },
@@ -138,6 +144,7 @@ const DeerLog = {
       const entry = this.newEntryDefaults();
       if (loc) {
         entry.farmId = loc.farmId;
+        entry.fieldId = loc.fieldId || "";
         entry.what3words = loc.what3words;
         entry.lat = loc.lat;
         entry.lng = loc.lng;
@@ -164,6 +171,7 @@ const DeerLog = {
       this.draft.what3words = loc.what3words;
       this.draft.lat = loc.lat;
       this.draft.lng = loc.lng;
+      this.draft.fieldId = Fields.fieldIdForPin(this.draft.farmId, loc);
       Popup.markDirty();
       Popup.setBody(this.renderPopupBody());
       this.draft.weather = await fetchWeatherForEntry(loc.lat, loc.lng, this.draft.date);
@@ -204,7 +212,7 @@ const DeerLog = {
 
   sexOptionsFor(species) {
     const t = SPECIES_TERMS[species];
-    return [t.male, t.female, t.young];
+    return t ? [t.male, t.female, t.young] : []; // blank/unknown species (e.g. from an import) has no terms yet
   },
 
   setYear(year) { this.selectedYear = year; this.render(); },
@@ -224,7 +232,7 @@ const DeerLog = {
   groupByField() {
     const groups = {};
     this.scopedEntries().forEach((e) => {
-      const key = e.location || "(no field name)";
+      const key = Fields.nameFor(e.farmId, e.fieldId) || e.location || "(no field name)";
       groups[key] = groups[key] || [];
       groups[key].push(e);
     });
@@ -338,7 +346,7 @@ const DeerLog = {
   },
 
   listColumnCandidates: [
-    { key: "species", label: "Species" }, { key: "location", label: "Location" },
+    { key: "species", label: "Species" }, { key: "location", label: "Location" }, { key: "field", label: "Field" },
     { key: "firearm", label: "Weapon" }, { key: "notes", label: "Notes" },
   ],
   listColumns() {
@@ -430,11 +438,11 @@ const DeerLog = {
     if (other.length) groups.push({ id: "other", name: "Other", list: other });
 
     const cols = this.listColumns();
-    const colLabel = (e) => cols.map((c) => c === "species" ? e.species : c === "location" ? (e.location || "") : c === "firearm" ? (e.firearm || "") : c === "notes" ? (e.notes || "") : "").filter(Boolean).join(" · ");
+    const colLabel = (e) => cols.map((c) => c === "species" ? e.species : c === "location" ? (e.location || "") : c === "field" ? Fields.nameFor(e.farmId, e.fieldId) : c === "firearm" ? (e.firearm || "") : c === "notes" ? (e.notes || "") : "").filter(Boolean).join(" · ");
 
     el.innerHTML = groups
       .map((g) => {
-        const sorted = g.list.slice().sort((a, b) => a.date.localeCompare(b.date)); // oldest first
+        const sorted = g.list.slice().sort((a, b) => (a.date || "").localeCompare(b.date || "")); // oldest first
         const rows = sorted
           .map((e) => {
             const idx = entries.indexOf(e);
@@ -443,7 +451,7 @@ const DeerLog = {
       <div class="log-row-card compact-row" onclick="DeerLog.openEditPopup(${idx})" style="cursor:pointer;">
         ${warning ? `<div class="compliance-warning">⚠ ${warning}</div>` : ""}
         <div class="log-row compact-summary">
-          <span>${e.date}</span>
+          <span>${displayDate(e.date)}</span>
           <span>${e.sex}</span>
           <span>${colLabel(e)}</span>
         </div>
@@ -481,14 +489,17 @@ const DeerLog = {
       ${renderStatCards([{ value: total, label: "Total shot" }])}
       <div class="table-scroll" style="margin-top:10px;"><table class="data-table"><tr><th>Season year</th><th>Shot</th><th></th></tr>${rows}</table></div>
       ${farm ? `<button class="btn secondary small" style="width:100%; margin-top:14px;" onclick="ShotLocationMap.open('deer','${farmId}')">📍 Total kills map — all seasons</button>
-      <button class="btn small" style="width:100%; margin-top:8px;" onclick="DeerLog.drillIntoFarm('${farmId}')">Open full Cull Plan workspace</button>` : ""}`);
+      <button class="btn small" style="width:100%; margin-top:8px;" onclick="DeerLog.drillIntoFarm('${farmId}')">Open full Cull Plan workspace</button>` : ""}
+      ${farm ? Fields.byFieldBlockHtml(farmId, entries.filter((e) => { const t = SPECIES_TERMS[e.species]; return t && (e.age === "Young" || e.sex === t.male || e.sex === t.female); }), "deer", () => 1) : ""}`);
   },
 
   renderCullPlanList(filter) {
     const farms = (window.APP_DATA.farms || []).filter((f) => !filter || f.name.toLowerCase().includes(filter.toLowerCase()));
     const el = document.getElementById("deerCullPlanList");
-    el.innerHTML = renderLocationsListHtml("DeerLog.drillIntoFarm", false) +
-      `<button class="btn small" style="margin-top:10px;" onclick="addFarm()">+ Add property</button>`;
+    const rows = farms.map((f) => renderLocationRow(f, "DeerLog.drillIntoFarm")).join("");
+    el.innerHTML =
+      `<button class="btn small" style="display:block; width:100%; margin-bottom:10px;" onclick="addFarm()">+ Add property</button>` +
+      `<div class="farm-list">${rows || '<p class="hint">No properties match.</p>'}</div>`;
   },
   filterCullPlanList(q) { this.renderCullPlanList(q); },
 
@@ -707,7 +718,7 @@ const DeerLog = {
     const farm = this.findFarm(this.currentFarmId);
     const rows = this.scopedEntries().map((e) => ({
       Date: e.date, Species: e.species, Sex: e.sex, Age: e.age, Location: e.location,
-      "what3words": e.what3words, Weight: e.weight, Firearm: e.firearm, Condition: e.condition,
+      Field: Fields.nameFor(e.farmId, e.fieldId), "what3words": e.what3words, Weight: e.weight, Firearm: e.firearm, Condition: e.condition,
       "Recorded by": e.recordedBy, "Shot by": e.shotBy, Destination: e.destination, Notes: e.notes,
     }));
     exportSectionExcel("deer-cull-plan-" + farm.name.replace(/[^a-z0-9]+/gi, "-"), rows, farm.name);
@@ -759,7 +770,7 @@ const DeerLog = {
       <div class="log-row-card compact-row" onclick="DeerLog.openEditPopup(${idx})" style="cursor:pointer;">
         ${warning ? `<div class="compliance-warning">⚠ ${warning}</div>` : ""}
         <div class="log-row compact-summary">
-          <span>${e.date}</span>
+          <span>${displayDate(e.date)}</span>
           <span>${e.sex}</span>
           <span>${e.location || ""}</span>
         </div>
@@ -786,11 +797,13 @@ const DeerLog = {
     html += `<div class="log-row">
       ${Popup.labeled("Date", `<input type="date" value="${e.date}" onchange="DeerLog.updateDraft('date',this.value)" />`)}
       ${Popup.labeled("Species", `<select onchange="DeerLog.updateDraft('species',this.value)">
+        ${SPECIES_TERMS[e.species] ? "" : `<option value="" selected>Species…</option>`}
         ${Object.keys(SPECIES_TERMS).map((s) => `<option ${s === e.species ? "selected" : ""}>${s}</option>`).join("")}
       </select>`)}
     </div>
     <div class="log-row">
       ${Popup.labeled("Sex", `<select onchange="DeerLog.updateDraft('sex',this.value)">
+        ${(!e.sex || !this.sexOptionsFor(e.species).includes(e.sex)) ? `<option value="" ${e.sex ? "" : "selected"}>Sex…</option>${e.sex ? `<option selected>${escapeHtml(e.sex)}</option>` : ""}` : ""}
         ${this.sexOptionsFor(e.species).map((s) => `<option ${s === e.sex ? "selected" : ""}>${s}</option>`).join("")}
       </select>`)}
       ${Popup.labeled("Age", `<select onchange="DeerLog.updateDraft('age',this.value)">
@@ -803,6 +816,7 @@ const DeerLog = {
         <option value="other" ${!e.farmId || e.farmId === "other" ? "selected" : ""}>Other</option>
       </select>`)}
     </div>
+    ${Fields.selectRowHtml(e, "DeerLog")}
     <div class="log-row">
       ${on("location") ? Popup.labeled("Location", `<input type="text" placeholder="Location" value="${e.location || ""}" onchange="DeerLog.updateDraft('location',this.value)" />`) : ""}
       ${on("time") ? Popup.labeled("Time", `<input type="time" value="${e.time || ""}" onchange="DeerLog.updateDraft('time',this.value)" />`, "width:100px;") : ""}
@@ -863,7 +877,7 @@ const DeerLog = {
     return keys
       .map((key) => {
         const list = groups[key];
-        const rows = list.map((e) => `<div class="grouped-row"><span>${e.date}</span><span>${e.species}</span><span>${e.sex}</span><span>${e.age}</span></div>`).join("");
+        const rows = list.map((e) => `<div class="grouped-row"><span>${displayDate(e.date)}</span><span>${e.species}</span><span>${e.sex}</span><span>${e.age}</span></div>`).join("");
         return `<div class="grouped-block"><h4>${key} <span class="grouped-count">(${list.length})</span></h4>${rows}</div>`;
       })
       .join("");

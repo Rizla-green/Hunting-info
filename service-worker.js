@@ -4,7 +4,7 @@
 // in js/version.js. Changing this string is what makes the phone pull
 // fresh files next time it has a connection — without it, the old
 // cached version keeps being served forever.
-const CACHE_VERSION = "hunting-info-v4.16.0";
+const CACHE_VERSION = "hunting-info-v4.17.0";
 
 const CORE_FILES = [
   "./",
@@ -21,6 +21,7 @@ const CORE_FILES = [
   "./js/season-utils.js",
   "./js/field-settings.js",
   "./js/location-match.js",
+  "./js/fields.js",
   "./js/land-farms.js",
   "./js/farm-profile.js",
   "./js/shot-map.js",
@@ -101,14 +102,18 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
 
+  // Opening the app with a query string (e.g. coming back from Dropbox's
+  // Allow screen: /?code=...&state=...) must still get the cached app page.
+  const isPageLoad = event.request.mode === "navigate";
+
   event.respondWith(
-    caches.match(event.request).then((cached) => {
+    caches.match(event.request, isPageLoad ? { ignoreSearch: true } : undefined).then((cached) => {
       if (cached) return cached;
 
       return fetch(event.request)
         .then((response) => {
           // Only cache successful, same-origin responses.
-          if (response && response.status === 200 && response.type === "basic") {
+          if (response && response.status === 200 && response.type === "basic" && !new URL(event.request.url).search) {
             const clone = response.clone();
             caches.open(CACHE_VERSION).then((cache) => cache.put(event.request, clone));
           }

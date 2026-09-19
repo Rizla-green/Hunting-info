@@ -19,6 +19,7 @@ const WEATHER_CODES = {
 };
 
 async function fetchWeatherForEntry(lat, lng, dateStr) {
+  if (!dateStr || isNaN(new Date(dateStr))) return ""; // no (valid) date on the entry — nothing to look up
   try {
     const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lng}&start_date=${dateStr}&end_date=${dateStr}&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto`;
     const res = await fetch(url);

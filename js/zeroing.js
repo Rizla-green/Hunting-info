@@ -161,7 +161,7 @@ const Zeroing = {
   },
 
   render() {
-    const sessions = this.sessions().slice().sort((a, b) => a.date.localeCompare(b.date));
+    const sessions = this.sessions().slice().sort((a, b) => (a.date || "").localeCompare(b.date || ""));
     const overlay = document.getElementById("modalOverlay");
     overlay.innerHTML = `
       <div class="modal-box species-modal-box">
@@ -180,7 +180,7 @@ const Zeroing = {
         return `
       <div class="log-row-card compact-row" onclick="Zeroing.openEditPopup(${idx})" style="cursor:pointer;">
         <div class="log-row compact-summary">
-          <span>${s.date}</span>
+          <span>${displayDate(s.date)}</span>
           <span>${s.rifle || ""}</span>
           <span>${s.location || ""}</span>
         </div>

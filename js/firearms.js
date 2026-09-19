@@ -9,7 +9,8 @@
      [U/O, SBS, Semi-auto, Pump action, FAC shotgun] / Air rifle /
      FAC air rifle), Magazine capacity (Semi-auto/FAC shotgun only),
      Scope type (Day optics / Digital NV / Thermal — not for shotguns),
-     Clip-on NV (Day optics scopes only).
+     Clip-on NV (Day optics scopes only), Moderator (on/off switch, with
+     a notes box for the make when on).
    Also tracks a running ROUND COUNT per firearm — tallied live by
    summing the relevant count field on every entry, across every
    section, that has this firearm selected. Not a stored number; it's
@@ -21,6 +22,24 @@ const SHOTGUN_SUBTYPES = ["Under/over (U/O)", "Side by side (SBS)", "Semi-auto",
 const SCOPE_TYPES = ["Day optics", "Digital NV", "Thermal"];
 const SCOPE_ELIGIBLE_TYPES = ["Centre fire", "Rimfire", "Air rifle", "FAC air rifle"];
 const MAG_CAPACITY_SUBTYPES = ["Semi-auto", "FAC shotgun"];
+
+// What the ⚙ "List columns" cog can show on the main Firearms list (Name always shows).
+const FIREARM_LIST_COLUMNS = [
+  { key: "caliber",        label: "Caliber" },
+  { key: "makeModel",      label: "Make and model" },
+  { key: "type",           label: "Type" },
+  { key: "shotgunSubtype", label: "Shotgun type" },
+  { key: "magCapacity",    label: "Magazine capacity" },
+  { key: "scopeType",      label: "Scope type" },
+  { key: "clipOnNV",       label: "Clip-on NV" },
+  { key: "moderator",      label: "Moderator (Yes/No)" },
+  { key: "rounds",         label: "Rounds fired" },
+];
+const FIREARM_LIST_DEFAULTS = ["caliber", "rounds"];
+
+// Fields whose change alters which other boxes are shown, so the popup redraws.
+// Every other field just saves quietly (redrawing would swallow a tap on Save).
+const FIREARM_REDRAW_FIELDS = ["type", "shotgunSubtype", "scopeType", "moderator"];
 
 const Firearms = {
   detailName: null, // name of the firearm currently open in the detail popup, or null
@@ -71,7 +90,55 @@ const Firearms = {
     if (field === "shotgunSubtype" && !MAG_CAPACITY_SUBTYPES.includes(value)) f.magCapacity = "";
     if (field === "scopeType" && value !== "Day optics") f.clipOnNV = false;
     persistData();
-    this.renderDetailBody(name);
+    if (FIREARM_REDRAW_FIELDS.includes(field)) this.renderDetailBody(name);
+  },
+
+  // Save button — everything already saves as you go, so this just closes the popup.
+  saveAndClose() {
+    Popup.dirty = false;
+    Popup.close();
+  },
+
+  // ---------- List columns (⚙) ----------
+  listColumns() {
+    window.APP_DATA.listColumnPrefs = window.APP_DATA.listColumnPrefs || {};
+    return window.APP_DATA.listColumnPrefs.firearms || FIREARM_LIST_DEFAULTS;
+  },
+  openColumnSettings() {
+    const current = this.listColumns();
+    const html = `
+      ${Popup.header("List columns")}
+      <div style="padding:0 16px 16px;">
+        <p class="hint" style="margin-top:0;">The firearm's name always shows. Choose what else appears on each line of the list.</p>
+        ${FIREARM_LIST_COLUMNS.map((c) => `
+          <label style="display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid var(--navy-light);">
+            <input type="checkbox" ${current.includes(c.key) ? "checked" : ""} onchange="Firearms.toggleListColumn('${c.key}', this.checked)" />
+            ${c.label}
+          </label>`).join("")}
+      </div>`;
+    Popup.open(html, () => this.render());
+  },
+  toggleListColumn(key, checked) {
+    window.APP_DATA.listColumnPrefs = window.APP_DATA.listColumnPrefs || {};
+    let cols = window.APP_DATA.listColumnPrefs.firearms || FIREARM_LIST_DEFAULTS;
+    cols = checked ? [...new Set([...cols, key])] : cols.filter((c) => c !== key);
+    window.APP_DATA.listColumnPrefs.firearms = cols;
+    persistData();
+  },
+  // The text for one column of one firearm's list line ("" = nothing to show).
+  columnText(f, key) {
+    switch (key) {
+      case "caliber": return f.caliber || "";
+      case "makeModel": return f.makeModel || "";
+      case "type": return f.type || "";
+      case "shotgunSubtype": return f.shotgunSubtype || "";
+      case "magCapacity": return f.magCapacity ? `Mag ${f.magCapacity}` : "";
+      case "scopeType": return f.scopeType || "";
+      case "clipOnNV": return f.clipOnNV ? "Clip-on NV" : "";
+      case "moderator": return `Moderator: ${f.moderator ? "Yes" : "No"}`;
+      case "rounds": return `${this.roundCountFor(f.name)} rounds`;
+      default: return "";
+    }
   },
 
   renameName(oldName, newName) {
@@ -128,13 +195,13 @@ const Firearms = {
   render() {
     const overlay = document.getElementById("modalOverlay");
     const firearms = this.objects();
+    const cols = this.listColumns();
     const rows = firearms
       .map((f) => `
       <div class="log-row-card compact-row" onclick="Firearms.openDetail('${f.name.replace(/'/g, "\\'")}')" style="cursor:pointer;">
         <div class="log-row compact-summary">
-          <span>${f.name}</span>
-          <span>${f.caliber || ""}</span>
-          <span>${this.roundCountFor(f.name)} rounds</span>
+          <span>${escapeHtml(f.name)}</span>
+          <span>${escapeHtml(FIREARM_LIST_COLUMNS.filter((c) => cols.includes(c.key)).map((c) => this.columnText(f, c.key)).filter(Boolean).join(" · "))}</span>
         </div>
       </div>`)
       .join("");
@@ -147,7 +214,8 @@ const Firearms = {
           <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">Main Menu</button>
         </div>
         <p class="hint">Manage your firearms here once — every Firearm field elsewhere picks from this same list. Tap one for its full setup and round count.</p>
-        <button class="btn small" style="display:block; width:100%;" onclick="Firearms.promptAdd()">+ Add firearm</button>
+        <button class="icon-btn" onclick="Firearms.openColumnSettings()" title="Choose list columns">⚙ List columns</button>
+        <button class="btn small" style="display:block; width:100%; margin-top:10px;" onclick="Firearms.promptAdd()">+ Add firearm</button>
         <div style="margin-top:8px;">${rows || '<p class="hint">No firearms added yet.</p>'}</div>
       </div>`;
     overlay.classList.remove("hidden");
@@ -175,55 +243,61 @@ const Firearms = {
     const showScopeType = SCOPE_ELIGIBLE_TYPES.includes(f.type);
     const showClipOnNV = showScopeType && f.scopeType === "Day optics";
     const rounds = this.roundCountFor(name);
+    const q = name.replace(/'/g, "\\'");           // safe inside the onclick/onchange strings below
+    const upd = (field, valueJs) => `Firearms.updateField('${q}','${field}',${valueJs})`;
 
     let html = Popup.header("Firearm Setup");
     html += `<div style="padding:0 16px 16px;">`;
-    html += `<div class="log-row">
-      <input type="text" placeholder="Name" value="${f.name}" onchange="Firearms.renameName('${name.replace(/'/g, "\\'")}', this.value)" />
-    </div>`;
+    html += `<div class="log-row">${Popup.labeled("Name", `<input type="text" placeholder="Name" value="${escapeHtml(f.name)}" onchange="Firearms.renameName('${q}', this.value)" />`)}</div>`;
     html += `<div class="log-row"><span class="hint" style="margin:0;">🎯 ${rounds} rounds fired through this firearm (tallied from every section)</span></div>`;
-    html += `<div class="log-row">
-      <input type="text" placeholder="Caliber" value="${f.caliber || ""}" onchange="Firearms.updateField('${name.replace(/'/g, "\\'")}','caliber',this.value)" />
-    </div>`;
-    html += `<div class="log-row">
-      <input type="text" placeholder="Make and model" value="${f.makeModel || ""}" onchange="Firearms.updateField('${name.replace(/'/g, "\\'")}','makeModel',this.value)" />
-    </div>`;
-    html += `<div class="log-row">
-      <select onchange="Firearms.updateField('${name.replace(/'/g, "\\'")}','type',this.value)">
+    html += `<div class="log-row">${Popup.labeled("Caliber", `<input type="text" placeholder="Caliber" value="${escapeHtml(f.caliber)}" onchange="${upd("caliber", "this.value")}" />`)}</div>`;
+    html += `<div class="log-row">${Popup.labeled("Make and model", `<input type="text" placeholder="Make and model" value="${escapeHtml(f.makeModel)}" onchange="${upd("makeModel", "this.value")}" />`)}</div>`;
+    html += `<div class="log-row">${Popup.labeled("Type", `<select onchange="${upd("type", "this.value")}">
         <option value="" ${!f.type ? "selected" : ""}>Type…</option>
         ${FIREARM_TYPES.map((t) => `<option ${t === f.type ? "selected" : ""}>${t}</option>`).join("")}
-      </select>
-    </div>`;
+      </select>`)}</div>`;
     if (showShotgunSubtype) {
-      html += `<div class="log-row">
-        <select onchange="Firearms.updateField('${name.replace(/'/g, "\\'")}','shotgunSubtype',this.value)">
+      html += `<div class="log-row">${Popup.labeled("Shotgun type", `<select onchange="${upd("shotgunSubtype", "this.value")}">
           <option value="" ${!f.shotgunSubtype ? "selected" : ""}>Shotgun type…</option>
           ${SHOTGUN_SUBTYPES.map((t) => `<option ${t === f.shotgunSubtype ? "selected" : ""}>${t}</option>`).join("")}
-        </select>
-      </div>`;
+        </select>`)}</div>`;
     }
     if (showMagCapacity) {
-      html += `<div class="log-row">
-        <input type="number" min="1" placeholder="Magazine capacity (shots held)" value="${f.magCapacity || ""}" onchange="Firearms.updateField('${name.replace(/'/g, "\\'")}','magCapacity',this.value)" />
-      </div>`;
+      html += `<div class="log-row">${Popup.labeled("Magazine capacity (shots held)", `<input type="number" min="1" placeholder="Magazine capacity (shots held)" value="${escapeHtml(f.magCapacity)}" onchange="${upd("magCapacity", "this.value")}" />`)}</div>`;
     }
     if (showScopeType) {
-      html += `<div class="log-row">
-        <select onchange="Firearms.updateField('${name.replace(/'/g, "\\'")}','scopeType',this.value)">
+      html += `<div class="log-row">${Popup.labeled("Scope type", `<select onchange="${upd("scopeType", "this.value")}">
           <option value="" ${!f.scopeType ? "selected" : ""}>Scope type…</option>
           ${SCOPE_TYPES.map((t) => `<option ${t === f.scopeType ? "selected" : ""}>${t}</option>`).join("")}
-        </select>
-      </div>`;
+        </select>`)}</div>`;
     }
     if (showClipOnNV) {
       html += `<div class="log-row">
         <label style="display:flex;align-items:center;gap:8px;font-size:13px;">
-          <input type="checkbox" ${f.clipOnNV ? "checked" : ""} onchange="Firearms.updateField('${name.replace(/'/g, "\\'")}','clipOnNV',this.checked)" />
+          <input type="checkbox" ${f.clipOnNV ? "checked" : ""} onchange="${upd("clipOnNV", "this.checked")}" />
           Clip-on NV
         </label>
       </div>`;
     }
-    html += Popup.removeFooter(`Firearms.remove('${name.replace(/'/g, "\\'")}')`, "Remove firearm");
+
+    // Moderator — on/off switch; when on, a notes box for the make.
+    html += `<div class="section-title" style="margin-top:12px;"><h4>Moderator</h4></div>`;
+    html += `<div class="log-row">
+      <label class="switch-row">
+        <span>Fitted with a moderator</span>
+        <span class="switch">
+          <input type="checkbox" ${f.moderator ? "checked" : ""} onchange="${upd("moderator", "this.checked")}" />
+          <span class="slider"></span>
+        </span>
+      </label>
+    </div>`;
+    if (f.moderator) {
+      html += `<div class="log-row">${Popup.labeled("Moderator make", `<textarea class="farm-notes" rows="2" placeholder="Make (and model) of the moderator" onchange="${upd("moderatorMake", "this.value")}">${escapeHtml(f.moderatorMake)}</textarea>`, "display:block; width:100%;")}</div>`;
+    }
+
+    // Same bottom buttons, same order, as every other popup: Remove above Save.
+    html += Popup.removeFooter(`Firearms.remove('${q}')`, "Remove firearm");
+    html += Popup.saveFooter("Firearms.saveAndClose()");
     html += `</div>`;
     return html;
   },

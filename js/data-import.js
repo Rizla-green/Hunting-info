@@ -115,6 +115,7 @@ const DataImport = {
     this.rows = [];
     this.mapping = {};
     this.rowImages = {};
+    this.rowSourceIdx = [];
     Popup.open(this.renderCategoryStep());
   },
 
@@ -145,13 +146,21 @@ const DataImport = {
 
     const buffer = await file.arrayBuffer();
 
-    // 1) Data columns, via SheetJS.
+    // 1) Data columns, via SheetJS. Cells are read as their real values
+    //    (raw), so a date arrives as an Excel date number rather than text in
+    //    whichever order (day/month vs month/day) the sheet happened to display.
     const workbook = XLSX.read(buffer, { type: "array" });
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
-    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "" });
-    this.headers = (rows[0] || []).map((h) => String(h || "").trim());
-    this.rows = rows.slice(1).filter((r) => r.some((cell) => String(cell || "").trim() !== ""));
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: "" });
+    this.headers = (rows[0] || []).map((h) => String(h ?? "").trim());
+    // Empty rows are dropped, but each kept row remembers its real position in
+    // the sheet — that position is how embedded photos are matched to rows.
+    this.rows = [];
+    this.rowSourceIdx = [];
+    rows.slice(1).forEach((r, i) => {
+      if (r.some((cell) => String(cell ?? "").trim() !== "")) { this.rows.push(r); this.rowSourceIdx.push(i); }
+    });
 
     // 2) Embedded images, via JSZip — best-effort, anchored to a data row by
     //    the drawing's row index (0-based, header row = 0, so data row N is
@@ -229,10 +238,31 @@ const DataImport = {
     else delete this.mapping[colIdx];
   },
 
+  // The raw text of the mapped cell (or "" if that field isn't matched to a column).
+  rawCell(row, fieldKey) {
+    const colIdx = Object.keys(this.mapping).find((idx) => this.mapping[idx] === fieldKey);
+    if (colIdx === undefined) return "";
+    const v = row[colIdx];
+    return v === null || v === undefined ? "" : String(v).trim();
+  },
+
+  // A time cell can be text ("06:45") or an Excel time (a fraction of a day).
+  timeText(v) {
+    if (typeof v === "number" && v >= 0) {
+      const frac = v - Math.floor(v);
+      const mins = Math.round(frac * 24 * 60) % (24 * 60);
+      return `${String(Math.floor(mins / 60)).padStart(2, "0")}:${String(mins % 60).padStart(2, "0")}`;
+    }
+    return v === null || v === undefined ? "" : String(v).trim();
+  },
+
   cellFor(row, fieldKey) {
     const colIdx = Object.keys(this.mapping).find((idx) => this.mapping[idx] === fieldKey);
     if (colIdx === undefined) return "";
-    return String(row[colIdx] || "").trim();
+    const v = row[colIdx];
+    if (fieldKey === "date") return parseFlexibleDate(v);   // "" if it can't be read
+    if (fieldKey === "time") return this.timeText(v);
+    return v === null || v === undefined ? "" : String(v).trim();
   },
 
   findFarmIdByName(name) {
@@ -242,23 +272,45 @@ const DataImport = {
     return match ? match.id : "other";
   },
 
+  // Which box the category needs to be counted in its section's tables.
+  countKeyFor(cat) {
+    if (cat === "deer" || cat === "game") return { key: "species", label: "species" };
+    if (["boar", "goats", "fox", "squirrel", "winged"].includes(cat)) return { key: "category", label: "category" };
+    return null;
+  },
+
   runImport() {
     const cat = this.category;
     let created = 0;
     let photosAttached = 0;
 
+    // Nothing is skipped and nothing is made up — but say what will be left blank.
+    const noDate = this.rows.filter((r) => !this.cellFor(r, "date")).length;
+    const ck = this.countKeyFor(cat);
+    const noCat = ck ? this.rows.filter((r) => !this.cellFor(r, ck.key)).length : 0;
+    if (noDate || noCat) {
+      const lines = [`About to import ${this.rows.length} rows. Every row will be kept.`];
+      if (noDate) lines.push(`• ${noDate} have no readable date. They'll show as "No date" and won't count towards any season until you give them one.`);
+      if (noCat) lines.push(`• ${noCat} have no ${ck.label}. They'll be kept and listed, but can't be counted in the ${ck.label} tables until you fill that in.`);
+      lines.push("", "Continue?");
+      if (!confirm(lines.join("\n"))) return;
+    }
+
     this.rows.forEach((row, rowIdx) => {
       const get = (key) => this.cellFor(row, key);
-      const photos = this.rowImages[rowIdx] || [];
+      const photos = this.rowImages[this.rowSourceIdx ? this.rowSourceIdx[rowIdx] : rowIdx] || [];
       photosAttached += photos.length;
 
       if (cat === "deer") {
         window.APP_DATA.species = window.APP_DATA.species || {};
       }
 
+      // A date that can't be read is left blank — the original text is kept in Notes so nothing is lost.
+      const rawDate = this.rawCell(row, "date");
+      const dateNote = rawDate && !get("date") ? `Original date in spreadsheet: ${rawDate}` : "";
       const base = {
-        date: get("date") || new Date().toISOString().slice(0, 10),
-        notes: get("notes"),
+        date: get("date"),
+        notes: [get("notes"), dateNote].filter(Boolean).join(" — "),
         locationNotes: get("locationNotes"),
         firearm: get("firearm"),
         photos,
@@ -268,8 +320,8 @@ const DataImport = {
         window.APP_DATA.species.deer = window.APP_DATA.species.deer || [];
         window.APP_DATA.species.deer.push({
           ...base,
-          species: get("species") || SPECIES_LIST[0],
-          sex: get("sex"), age: get("age") || "Adult",
+          species: get("species"),
+          sex: get("sex"), age: get("age"),
           farmId: this.findFarmIdByName(get("farmName")),
           location: get("location"), what3words: get("what3words"), lat: null, lng: null, weather: "",
           time: get("time"), weight: get("weight"), tag: get("tag"), condition: get("condition"),
@@ -282,7 +334,7 @@ const DataImport = {
         window.APP_DATA.species[cat] = window.APP_DATA.species[cat] || [];
         window.APP_DATA.species[cat].push({
           ...base,
-          category: get("category") || SPECIES_SECTIONS[cat].categories[0],
+          category: get("category"),
           farmId: this.findFarmIdByName(get("farmName")),
           location: get("location"), what3words: get("what3words"), lat: null, lng: null, weather: "",
           time: get("time"), weight: get("weight"), tag: get("tag"), condition: get("condition"),
@@ -296,7 +348,7 @@ const DataImport = {
         window.APP_DATA.species[cat] = window.APP_DATA.species[cat] || [];
         window.APP_DATA.species[cat].push({
           ...base,
-          category: get("category") || SPECIES_SECTIONS[cat].categories[0],
+          category: get("category"),
           farmId: this.findFarmIdByName(get("farmName")),
           area: get("area"), what3words: get("what3words"), lat: null, lng: null, weather: "",
           shots: parseInt(get("shots"), 10) || 1, ampm: "AM",
@@ -324,7 +376,7 @@ const DataImport = {
           ...base,
           farmId, locationText: farmId === "other" ? farmName : "",
           what3words: get("what3words"), lat: null, lng: null, weather: "",
-          lines: [{ category: get("category") || WINGED_VERMIN_LIST[0], shots: parseInt(get("shots"), 10) || 1 }],
+          lines: [{ category: get("category"), shots: parseInt(get("shots"), 10) || 1 }],
         });
         created++;
       } else if (cat === "game") {
@@ -335,7 +387,7 @@ const DataImport = {
           what3words: "", lat: null, lng: null, weather: "",
           gunsStanding: parseInt(get("gunsStanding"), 10) || 1,
           dayTotalShots: 0, dayTotal: [],
-          species: [{ species: get("species") || GAME_BIRD_LIST[0], hits: parseInt(get("hits"), 10) || 0, shotsTaken: parseInt(get("shotsTaken"), 10) || 0 }],
+          species: [{ species: get("species"), hits: parseInt(get("hits"), 10) || 0, shotsTaken: parseInt(get("shotsTaken"), 10) || 0 }],
         });
         if (get("location")) GameShooting.addLocation(get("location"));
         created++;

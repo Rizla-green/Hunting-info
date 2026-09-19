@@ -30,7 +30,7 @@ function moonPhaseFor(dateStr) {
 }
 
 function moonPhaseLabel(dateStr) {
-  if (!dateStr) return "";
+  if (!dateStr || isNaN(new Date(dateStr + "T21:00:00"))) return "";
   const p = moonPhaseFor(dateStr);
   return `${p.emoji} ${p.name}`;
 }

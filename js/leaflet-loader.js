@@ -25,4 +25,31 @@ const LeafletLoader = {
     };
     document.head.appendChild(script);
   },
+
+  // Leaflet + the Leaflet.draw toolbar (polygon / rectangle / edit with
+  // Finish, Delete last point, Cancel) — only the Land map needs this.
+  // If the drawing add-on can't load (e.g. offline), the map still opens
+  // and shows a message instead of the toolbar.
+  drawLoading: false,
+  ensureDraw(callback) {
+    this.ensure(() => {
+      if (window.L && L.Control && L.Control.Draw) { callback(); return; }
+      if (this.drawLoading) {
+        const check = setInterval(() => {
+          if (!this.drawLoading) { clearInterval(check); callback(); }
+        }, 100);
+        return;
+      }
+      this.drawLoading = true;
+      const css = document.createElement("link");
+      css.rel = "stylesheet";
+      css.href = "https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css";
+      document.head.appendChild(css);
+      const script = document.createElement("script");
+      script.src = "https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js";
+      script.onload = () => { this.drawLoading = false; callback(); };
+      script.onerror = () => { this.drawLoading = false; callback(); };
+      document.head.appendChild(script);
+    });
+  },
 };

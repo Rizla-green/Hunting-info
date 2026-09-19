@@ -10,6 +10,7 @@ const ShotLocationMap = {
   sectionKey: null,      // 'deer' or a SPECIES_SECTIONS key
   seasonYear: null,
   viewFarmId: null,      // null = combined (all farms)
+  viewFieldId: null,     // null = every field on the chosen farm (only used with a single farm)
 
   // entries() + seasonLabelFor work the same way for Deer and the
   // shared species logs, so this just points at whichever is active.
@@ -22,6 +23,7 @@ const ShotLocationMap = {
   open(sectionKey, presetFarmId) {
     this.sectionKey = sectionKey;
     this.viewFarmId = presetFarmId || null;
+    this.viewFieldId = null;
     this.seasonYear = currentSeasonLabel(sectionKey === "deer" ? "deer" : sectionKey);
     LeafletLoader.ensure(() => this._openMap());
   },
@@ -64,11 +66,18 @@ const ShotLocationMap = {
       `<button class="tab-btn ${!this.viewFarmId ? "active" : ""}" onclick="ShotLocationMap.setFarm(null)">All farms</button>`,
       ...farms.map((f) => `<button class="tab-btn ${this.viewFarmId === f.id ? "active" : ""}" onclick="ShotLocationMap.setFarm('${f.id}')">${f.name}</button>`),
     ].join("");
-    document.getElementById("shotMapFilters").innerHTML = `<div>${yearButtons}</div><div style="margin-top:6px;">${farmButtons}</div>`;
+    const fields = FIELD_SECTIONS.includes(this.sectionKey) && this.viewFarmId ? Fields.forFarm(this.viewFarmId) : [];
+    const fieldButtons = fields.length
+      ? `<div style="margin-top:6px;"><button class="tab-btn ${!this.viewFieldId ? "active" : ""}" onclick="ShotLocationMap.setField(null)">All fields</button>${fields
+          .map((f) => `<button class="tab-btn ${this.viewFieldId === f.id ? "active" : ""}" onclick="ShotLocationMap.setField('${f.id}')">${escapeHtml(f.name)}</button>`)
+          .join("")}</div>`
+      : "";
+    document.getElementById("shotMapFilters").innerHTML = `<div>${yearButtons}</div><div style="margin-top:6px;">${farmButtons}</div>${fieldButtons}`;
   },
 
   setYear(year) { this.seasonYear = year; this.renderFilters(); this.renderPins(); },
-  setFarm(farmId) { this.viewFarmId = farmId; this.renderFilters(); this.renderPins(); },
+  setFarm(farmId) { this.viewFarmId = farmId; this.viewFieldId = null; this.renderFilters(); this.renderPins(); },
+  setField(fieldId) { this.viewFieldId = fieldId; this.renderFilters(); this.renderPins(); },
 
   renderPins() {
     if (this._pinLayer) this.map.removeLayer(this._pinLayer);
@@ -79,18 +88,34 @@ const ShotLocationMap = {
       if (e.lat == null || e.lng == null) return false;
       if (seasonLabelFor(e.date, seasonKey) !== this.seasonYear) return false;
       if (this.viewFarmId && (e.farmId || "other") !== this.viewFarmId) return false;
+      if (this.viewFieldId && e.fieldId !== this.viewFieldId) return false;
       return true;
+    });
+
+    // Outline the chosen farm's fields (labelled) so pins can be read against them.
+    if (this._outlineLayer) this.map.removeLayer(this._outlineLayer);
+    this._outlineLayer = L.layerGroup().addTo(this.map);
+    const outlineFields = FIELD_SECTIONS.includes(this.sectionKey) && this.viewFarmId ? Fields.forFarm(this.viewFarmId) : [];
+    outlineFields.forEach((f) => {
+      if (!f.points || f.points.length < 3) return;
+      const chosen = this.viewFieldId === f.id;
+      L.polygon(f.points.map((p) => [p.lat, p.lng]), { color: "#e0b84a", weight: chosen ? 3 : 2, fillOpacity: chosen ? 0.18 : 0.06, interactive: false })
+        .bindTooltip(escapeHtml(f.name), { permanent: true, direction: "center", className: "field-label" })
+        .addTo(this._outlineLayer);
     });
 
     pins.forEach((e) => {
       const label = this.sectionKey === "deer" ? `${e.species} — ${e.sex}` : e.category;
       L.circleMarker([e.lat, e.lng], { radius: 7, color: "#fff", weight: 2, fillColor: "#cda85e", fillOpacity: 1 })
-        .bindPopup(`<strong>${label}</strong><br>${e.date}${e.what3words ? "<br>" + e.what3words : ""}`)
+        .bindPopup(`<strong>${label}</strong><br>${displayDate(e.date)}${e.what3words ? "<br>" + e.what3words : ""}`)
         .addTo(this._pinLayer);
     });
 
     if (pins.length > 0) {
       this.map.fitBounds(L.latLngBounds(pins.map((p) => [p.lat, p.lng])).pad(0.2));
+    } else if (this.viewFieldId) {
+      const f = Fields.byId(this.viewFarmId, this.viewFieldId);
+      if (f && f.points && f.points.length > 2) this.map.fitBounds(L.latLngBounds(f.points.map((p) => [p.lat, p.lng])).pad(0.2));
     }
     document.getElementById("shotMapInfo").textContent = pins.length
       ? `${pins.length} shot location${pins.length === 1 ? "" : "s"} shown for ${this.seasonYear}.`
