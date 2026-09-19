@@ -72,6 +72,7 @@ const ClayShooting = {
     if (this.draftIdx === null) this.entries().push(this.draft);
     else this.entries()[this.draftIdx] = this.draft;
     persistData();
+    this.selectedYear = seasonLabelFor(this.draft.date, "clay"); // the list moves to the saved entry's year so it doesn't seem to vanish
     Popup.dirty = false;
     this.draft = null;
     this.draftIdx = null;
@@ -110,7 +111,7 @@ const ClayShooting = {
   captureW3w() {
     LocationMatch.captureLocation((loc) => {
       if (!loc) return;
-      this.draft.what3words = loc.what3words;
+      if (loc.what3words) this.draft.what3words = loc.what3words; // a failed lookup never wipes words already there
       this.draft.lat = loc.lat;
       this.draft.lng = loc.lng;
       Popup.markDirty();
@@ -191,8 +192,11 @@ const ClayShooting = {
   },
 
   renderList() {
-    const rows = this.entries()
+    const all = this.entries();
+    const inYear = new Set(listInYear(all, "clay", this.selectedYear)); // the year buttons above are the Overview's
+    const rows = all
       .map((e, idx) => {
+        if (!inYear.has(e)) return "";
         const pct = (parseInt(e.clays, 10) || 0) > 0 ? Math.round(((parseInt(e.hits, 10) || 0) / parseInt(e.clays, 10)) * 100) : 0;
         return `
       <div class="log-row-card compact-row" onclick="ClayShooting.openEditPopup(${idx})" style="cursor:pointer;">
@@ -204,7 +208,8 @@ const ClayShooting = {
       </div>`;
       })
       .join("");
-    return `<div style="margin-top:8px;">${rows || '<p class="hint">No entries yet — tap "+ Add entry" above to log a round.</p>'}</div>`;
+    const empty = !all.length ? '<p class="hint">No entries yet — tap "+ Add entry" above to log a round.</p>' : (!rows.trim() ? listEmptyYearHtml(all, "clay", this.selectedYear) : "");
+    return `<div style="margin-top:8px;">${rows}${empty}</div>`;
   },
 
   // ---------- The popup editor (draft) ----------
@@ -220,7 +225,7 @@ const ClayShooting = {
     let html = Popup.header("Clay Shooting Entry");
     html += `<div style="padding:0 16px 16px;">`;
     html += `<div class="log-row">
-      ${Popup.labeled("Date", `<input type="date" value="${e.date}" onchange="ClayShooting.updateDraft('date',this.value)" />`)}
+      ${Popup.labeled("Date", `${DateInput.html(e.date, "ClayShooting.updateDraft('date', v)")}`)}
       ${Popup.labeled("Ground", `<select onchange="ClayShooting.handleLocationChange(this)">
         <option value="" ${!e.location ? "selected" : ""}>Ground…</option>
         ${grounds.map((g) => `<option ${g === e.location ? "selected" : ""}>${g}</option>`).join("")}

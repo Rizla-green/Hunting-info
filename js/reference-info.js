@@ -14,13 +14,30 @@ function ewniSeasons(includeRoeCwd) {
     "Muntjac":     { male: "No close season", female: "No close season" },
   };
   base["Roe deer"] = includeRoeCwd
-    ? { male: "1 Nov – 31 Mar (open 1 Apr – 31 Oct)", female: "1 Nov – 31 Mar" }
+    ? { male: "1 Apr – 31 Oct", female: "1 Nov – 31 Mar" }
     : { male: "N/A", female: "N/A" };
   base["Chinese water deer"] = includeRoeCwd
     ? { male: "1 Nov – 31 Mar", female: "1 Nov – 31 Mar" }
     : { male: "N/A", female: "N/A" };
   return base;
 }
+// ---- season date helpers (day-accurate; a non-leap reference year is fine for month/day maths) ----
+const SEASON_MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+function parseSeasonRange(text) {
+  const m = String(text || "").toLowerCase().match(/(\d+)\s+([a-z]+)[^0-9]*?(\d+)\s+([a-z]+)/);
+  if (!m) return null;
+  const sm = SEASON_MONTHS.indexOf(m[2].slice(0, 3)), em = SEASON_MONTHS.indexOf(m[4].slice(0, 3));
+  if (sm < 0 || em < 0) return null;
+  return { sm, sd: parseInt(m[1], 10), em, ed: parseInt(m[3], 10) };
+}
+function seasonAddDays(month, day, delta) {
+  const d = new Date(Date.UTC(2001, month, day + delta));
+  return [d.getUTCMonth(), d.getUTCDate()];
+}
+function seasonDayLabel(month, day) {
+  return `${day} ${SEASON_MONTHS[month][0].toUpperCase()}${SEASON_MONTHS[month].slice(1)}`;
+}
+
 const CLOSE_SEASON = {
   "England": ewniSeasons(true),
   "Wales": ewniSeasons(true),
@@ -116,16 +133,26 @@ const ReferenceInfo = {
     Popup.open(`${Popup.refHeader(title)}<div class="tracking-detail" style="padding:0 16px 16px;">${bodyHtml}</div>`);
   },
 
+  // The table above holds each species' OPEN season (the dates you may shoot). The closed season
+  // is the rest of the year — worked out here so both are shown.
+  seasonText(text) {
+    if (!text || text === "N/A") return "N/A";
+    if (/no close season/i.test(text)) return "Open all year";
+    const r = parseSeasonRange(text);
+    if (!r) return text;
+    return `Open ${seasonDayLabel(r.sm, r.sd)} – ${seasonDayLabel(r.em, r.ed)} · Closed ${seasonDayLabel(...seasonAddDays(r.em, r.ed, 1))} – ${seasonDayLabel(...seasonAddDays(r.sm, r.sd, -1))}`;
+  },
+
   seasons() {
     const countries = Object.keys(CLOSE_SEASON);
-    let html = `<p class="hint" style="margin-top:0;">Close season dates by country. "N/A" means that species isn't legally present/relevant there.</p>`;
+    let html = `<p class="hint" style="margin-top:0;">Open and closed seasons by country (dates are inclusive). "N/A" means that species isn't legally present/relevant there. Guidance only — check the official source for anything binding.</p>`;
     countries.forEach((country) => {
       const rows = Object.entries(CLOSE_SEASON[country])
-        .map(([species, sexes]) => `<div class="grouped-row"><span>${species}</span><span>M: ${sexes.male}</span><span>F: ${sexes.female}</span></div>`)
+        .map(([species, sexes]) => `<div class="grouped-row"><span>${species}</span><span>M: ${this.seasonText(sexes.male)}</span><span>F: ${this.seasonText(sexes.female)}</span></div>`)
         .join("");
       html += `<h4>${country}</h4>${rows}`;
     });
-    this.showModal("Deer Close Seasons", html);
+    this.showModal("Deer Open & Closed Seasons", html);
   },
 
   lymphNodes() {

@@ -171,6 +171,41 @@ const Fields = {
     Popup.setBody(mod.renderPopupBody());
   },
 
+  // Coordinates typed into an entry popup (any format coordinates.js understands).
+  // Sets the position, then the Property (only from Other) and Field, and fills in
+  // what3words (free position -> words lookup) if there aren't any. Unreadable text
+  // changes nothing and says so; outside the UK asks first.
+  async applyCoordinates(mod, text, wantField) {
+    const draft = mod.draft;
+    const t = String(text || "").trim();
+    if (!t) { draft.lat = null; draft.lng = null; Popup.markDirty(); Popup.setBody(mod.renderPopupBody()); return; }
+    const c = parseCoordinates(t);
+    if (!c) {
+      alert("Couldn't read those coordinates, so nothing was changed. Type latitude then longitude, e.g. 54.9353, -5.1566 or N54° 56.117' W005° 09.396'.");
+      Popup.setBody(mod.renderPopupBody());
+      return;
+    }
+    if (!isInUK(c.lat, c.lng) && !confirm("Those coordinates are outside the UK. Use them anyway? (A swapped latitude and longitude puts the pin in the sea.)")) {
+      Popup.setBody(mod.renderPopupBody());
+      return;
+    }
+    draft.lat = c.lat; draft.lng = c.lng;
+    Popup.markDirty();
+    const farmId = this.propertyForPin(draft.farmId, c.lat, c.lng);
+    if (farmId) draft.farmId = farmId;
+    if (wantField) draft.fieldId = this.fieldIdForPin(draft.farmId, { lat: c.lat, lng: c.lng, farmId: farmId || draft.farmId });
+    Popup.setBody(mod.renderPopupBody());
+    if (!draft.what3words) {
+      const words = await LocationMatch.convertToWhat3Words(c.lat, c.lng);
+      if (mod.draft === draft && words && !draft.what3words && draft.lat === c.lat) { draft.what3words = words; Popup.setBody(mod.renderPopupBody()); }
+    }
+  },
+
+  // The text shown in the Coordinates box for an entry that already has a position.
+  coordinatesText(e) {
+    return e.lat === null || e.lat === undefined || e.lng === null || e.lng === undefined ? "" : `${Number(e.lat).toFixed(5)}, ${Number(e.lng).toFixed(5)}`;
+  },
+
   // ---------- Entries that carry a field ----------
   entriesFor(sectionKey) {
     window.APP_DATA.species = window.APP_DATA.species || {};

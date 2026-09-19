@@ -185,6 +185,7 @@ const SpeciesLog = {
     if (this.draftIdx === null) this.entries().push(this.draft);
     else this.entries()[this.draftIdx] = this.draft;
     persistData();
+    this.selectedYear = seasonLabelFor(this.draft.date, this.currentSection); // the list moves to the saved entry's year so it doesn't seem to vanish
     Popup.dirty = false;
     this.draft = null;
     this.draftIdx = null;
@@ -214,6 +215,11 @@ const SpeciesLog = {
   // what3words typed or pasted by hand is just saved as typed. (Turning typed words into a
   // map position needs a paid what3words plan, so nothing is looked up. Positions come from
   // 📍 Auto (GPS) or from Options > Place pins.)
+  // Coordinates typed by hand (from a GPS, a map, a spreadsheet…): sets the position and, from Other, the property/field.
+  saveCoordinates(value) {
+    return Fields.applyCoordinates(this, value, FIELD_SECTIONS.includes(this.currentSection));
+  },
+
   saveTypedWords(value) {
     this.draft.what3words = value;
     Popup.markDirty();
@@ -222,7 +228,7 @@ const SpeciesLog = {
   captureW3w() {
     LocationMatch.captureLocation(async (loc) => {
       if (!loc) return;
-      this.draft.what3words = loc.what3words;
+      if (loc.what3words) this.draft.what3words = loc.what3words; // a failed lookup never wipes words already there
       this.draft.lat = loc.lat;
       this.draft.lng = loc.lng;
       const pinFarm = Fields.propertyForPin(this.draft.farmId, loc.lat, loc.lng); // only replaces "Other"
@@ -334,9 +340,10 @@ const SpeciesLog = {
   // ---------- COMPACT sections: List — Add pinned top, farm-grouped, oldest-first ----------
   renderCompactList() {
     const farms = window.APP_DATA.farms || [];
-    const entries = this.entries();
-    const groups = farms.map((f) => ({ id: f.id, name: f.name, list: entries.filter((e) => (e.farmId || "other") === f.id) }));
-    const other = entries.filter((e) => !e.farmId || e.farmId === "other" || !farms.some((f) => f.id === e.farmId));
+    const entries = this.entries();                    // whole list — positions in it are what the edit popup uses
+    const shown = listInYear(entries, this.currentSection, this.selectedYear);   // just the selected year
+    const groups = farms.map((f) => ({ id: f.id, name: f.name, list: shown.filter((e) => (e.farmId || "other") === f.id) }));
+    const other = shown.filter((e) => !e.farmId || e.farmId === "other" || !farms.some((f) => f.id === e.farmId));
     if (other.length) groups.push({ id: "other", name: "Other", list: other });
 
     const cols = this.listColumns();
@@ -371,7 +378,9 @@ const SpeciesLog = {
         📷 Add via camera
         <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="SpeciesLog.addEntryFromCamera(this)" />
       </label>` : ""}
-      ${listHeaderHtml("Entries", entries.length, "SpeciesLog.openColumnSettings()")}
+      ${listYearTabsHtml(entries, this.currentSection, this.selectedYear, "SpeciesLog.setYear")}
+      ${listHeaderHtml("Entries", shown.length, "SpeciesLog.openColumnSettings()")}
+      ${shown.length ? "" : listEmptyYearHtml(entries, this.currentSection, this.selectedYear)}
       <div>${groupsHtml || '<p class="hint">No entries yet — tap "+ Add entry" above.</p>'}</div>`;
   },
 
@@ -431,14 +440,16 @@ const SpeciesLog = {
       return "";
     }).filter(Boolean).join(" · ");
 
-    const rows = this.entries()
-      .map((e, idx) => `
+    const all = this.entries();
+    const inYear = new Set(listInYear(all, this.currentSection, this.selectedYear)); // the year buttons above are the Overview's
+    const rows = all
+      .map((e, idx) => inYear.has(e) ? `
       <div class="log-row-card compact-row" onclick="SpeciesLog.openEditPopup(${idx})" style="cursor:pointer;">
         <div class="log-row compact-summary">
           <span>${displayDate(e.date)}</span>
           <span>${colLabel(e)}</span>
         </div>
-      </div>`)
+      </div>` : "")
       .join("");
     return `
       <button class="btn small" style="display:block; width:100%;" onclick="SpeciesLog.openAddPopup()">+ Add</button>
@@ -464,7 +475,7 @@ const SpeciesLog = {
     html += `<div style="padding:0 16px 16px;">`;
     html += `<div class="log-row">
       <label style="flex:1;"><span class="hint" style="display:block; margin:0 0 2px;">Date</span>
-      <input type="date" value="${e.date}" onchange="SpeciesLog.updateDraft('date',this.value)" /></label>
+      ${DateInput.html(e.date, "SpeciesLog.updateDraft('date', v)")}</label>
       ${!isFlat ? `<label style="width:92px;"><span class="hint" style="display:block; margin:0 0 2px;">AM/PM</span><select onchange="SpeciesLog.updateDraft('ampm',this.value)">
         <option value="" ${!e.ampm ? "selected" : ""}>Not set</option>
         <option ${e.ampm === "AM" ? "selected" : ""}>AM</option>
@@ -579,7 +590,8 @@ const SpeciesLog = {
           <input type="text" placeholder="///what3words" value="${e.what3words || ""}" onchange="SpeciesLog.saveTypedWords(this.value)" />
         </label>
         <button class="btn small ghost" onclick="SpeciesLog.captureW3w()">📍 Auto</button>
-      </div>`;
+      </div>
+      <div class="log-row">${Popup.labeled("Coordinates (latitude, longitude)", `<input type="text" placeholder="e.g. 54.9353, -5.1566 or N54° 56.117' W005° 09.396'" value="${Fields.coordinatesText(e)}" onchange="SpeciesLog.saveCoordinates(this.value)" />`)}</div>`;
     }
 
     html += `<div class="log-row"><span class="hint" style="margin:0;">🌦️ Weather: ${e.weather || "— (set a location to auto-fill)"}</span></div>`;

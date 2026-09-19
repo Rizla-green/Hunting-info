@@ -89,6 +89,7 @@ const LocationMatch = {
       async (pos) => {
         const lat = pos.coords.latitude, lng = pos.coords.longitude;
         const what3words = await this.convertToWhat3Words(lat, lng);
+        if (!what3words) alert("Your position was saved, but the three words couldn't be looked up (no signal, or a what3words problem). Everything else on the entry still works.");
         const farmId = this.findFarmForPoint(lat, lng);
         const field = (farmId !== "other" && typeof Fields !== "undefined") ? Fields.findForPoint(farmId, lat, lng) : null;
         onComplete({ lat, lng, what3words, farmId, fieldId: field ? field.id : "" });

@@ -107,6 +107,7 @@ const GameShooting = {
     if (this.draftIdx === null) this.entries().push(this.draft);
     else this.entries()[this.draftIdx] = this.draft;
     persistData();
+    this.selectedYear = seasonLabelFor(this.draft.date, "game"); // the list moves to the saved entry's year so it doesn't seem to vanish
     Popup.dirty = false;
     this.draft = null;
     this.draftIdx = null;
@@ -145,7 +146,7 @@ const GameShooting = {
   captureW3w() {
     LocationMatch.captureLocation(async (loc) => {
       if (!loc) return;
-      this.draft.what3words = loc.what3words;
+      if (loc.what3words) this.draft.what3words = loc.what3words; // a failed lookup never wipes words already there
       this.draft.lat = loc.lat;
       this.draft.lng = loc.lng;
       Popup.markDirty();
@@ -225,8 +226,10 @@ const GameShooting = {
 
   renderDayList() {
     const days = this.entries();
+    const inYear = new Set(listInYear(days, "game", this.selectedYear)); // the year buttons above are the Overview's
     const rows = days
       .map((day, idx) => {
+        if (!inYear.has(day)) return "";
         const t = this.dayTotals(day);
         return `
       <div class="log-row-card compact-row" onclick="GameShooting.openEditPopup(${idx})" style="cursor:pointer;">
@@ -238,7 +241,8 @@ const GameShooting = {
       </div>`;
       })
       .join("");
-    return `<div style="margin-top:8px;">${rows || '<p class="hint">No days logged yet — tap "+ Add day" above.</p>'}</div>`;
+    const empty = !days.length ? '<p class="hint">No days logged yet — tap "+ Add day" above.</p>' : (!rows.trim() ? listEmptyYearHtml(days, "game", this.selectedYear) : "");
+    return `<div style="margin-top:8px;">${rows}${empty}</div>`;
   },
 
   // ---------- The popup editor for a single day (draft) ----------
@@ -273,7 +277,7 @@ const GameShooting = {
     let html = Popup.header("Game Shooting Day");
     html += `<div style="padding:0 16px 16px;">`;
     html += `<div class="log-row">
-      ${Popup.labeled("Date", `<input type="date" value="${day.date}" onchange="GameShooting.updateDraft('date',this.value)" />`)}
+      ${Popup.labeled("Date", `${DateInput.html(day.date, "GameShooting.updateDraft('date', v)")}`)}
       ${Popup.labeled("Shoot name", `<input type="text" placeholder="Shoot name" value="${day.shootName || ""}" onchange="GameShooting.updateDraft('shootName',this.value)" />`)}
     </div>`;
     html += `<div class="log-row">

@@ -4,7 +4,7 @@
 // in js/version.js. Changing this string is what makes the phone pull
 // fresh files next time it has a connection — without it, the old
 // cached version keeps being served forever.
-const CACHE_VERSION = "hunting-info-v4.17.6";
+const CACHE_VERSION = "hunting-info-v4.17.8";
 
 const CORE_FILES = [
   "./",
@@ -21,6 +21,7 @@ const CORE_FILES = [
   "./js/season-utils.js",
   "./js/field-settings.js",
   "./js/location-match.js",
+  "./js/coordinates.js",
   "./js/fields.js",
   "./js/map-tools.js",
   "./js/all-properties-map.js",

@@ -70,6 +70,7 @@ const Zeroing = {
     if (this.draftIdx === null) this.sessions().push(this.draft);
     else this.sessions()[this.draftIdx] = this.draft;
     persistData();
+    this.selectedYear = seasonLabelFor(this.draft.date, "zeroing"); // the list moves to the saved session's year
     Popup.dirty = false;
     this.draft = null;
     this.draftIdx = null;
@@ -133,7 +134,7 @@ const Zeroing = {
   captureW3w() {
     LocationMatch.captureLocation((loc) => {
       if (!loc) return;
-      this.draft.what3words = loc.what3words;
+      if (loc.what3words) this.draft.what3words = loc.what3words; // a failed lookup never wipes words already there
       this.draft.lat = loc.lat;
       this.draft.lng = loc.lng;
       Popup.markDirty();
@@ -160,8 +161,12 @@ const Zeroing = {
     Popup.setBody(this.renderPopupBody());
   },
 
+  selectedYear: null,
+  setYear(year) { this.selectedYear = year; this.render(); },
+
   render() {
-    const sessions = this.sessions().slice().sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+    const allSessions = this.sessions();
+    const sessions = listInYear(allSessions, "zeroing", this.selectedYear).sort((a, b) => (a.date || "").localeCompare(b.date || ""));
     const overlay = document.getElementById("modalOverlay");
     overlay.innerHTML = `
       <div class="modal-box species-modal-box">
@@ -187,7 +192,9 @@ const Zeroing = {
       </div>`;
       })
       .join("");
-    document.getElementById("zeroingBody").innerHTML = `${rows || '<p class="hint">No sessions yet.</p>'}<button class="btn small" style="margin-top:10px; display:block; width:100%;" onclick="Zeroing.openAddPopup()">+ Add session</button>`;
+    const yearTabs = allSessions.length ? listYearTabsHtml(allSessions, "zeroing", this.selectedYear, "Zeroing.setYear") : "";
+    const empty = !allSessions.length ? '<p class="hint">No sessions yet.</p>' : (!rows ? listEmptyYearHtml(allSessions, "zeroing", this.selectedYear) : "");
+    document.getElementById("zeroingBody").innerHTML = `${yearTabs}${rows}${empty}<button class="btn small" style="margin-top:10px; display:block; width:100%;" onclick="Zeroing.openAddPopup()">+ Add session</button>`;
   },
 
   // ---------- The popup editor (draft) ----------
@@ -204,7 +211,7 @@ const Zeroing = {
     let html = Popup.header("Zeroing Session");
     html += `<div style="padding:0 16px 16px;">`;
     html += `<div class="log-row">
-      ${Popup.labeled("Date", `<input type="date" value="${s.date}" onchange="Zeroing.updateDraft('date',this.value)" />`)}
+      ${Popup.labeled("Date", `${DateInput.html(s.date, "Zeroing.updateDraft('date', v)")}`)}
       ${Popup.labeled("Rifle", `<select onchange="Zeroing.handleRifleChange(this)">
         <option value="" ${!s.rifle ? "selected" : ""}>Rifle…</option>
         ${rifles.map((f) => `<option ${f === s.rifle ? "selected" : ""}>${f}</option>`).join("")}

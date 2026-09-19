@@ -23,6 +23,27 @@ function compareByDateOldestFirst(a, b) {
   return da.localeCompare(db);
 }
 
+// ---------- Year buttons on lists ----------
+// Every list opens on the current season/year; the year buttons at the top (the
+// same ones the Overview screens use) switch to another year. The selected
+// year is shared with that screen's Overview so the two always agree.
+function listEffectiveYear(entries, sectionKey, selected) {
+  const years = seasonYearsFor(entries, sectionKey);
+  return years.includes(selected) ? selected : currentSeasonLabel(sectionKey);
+}
+function listInYear(entries, sectionKey, selected) {
+  const year = listEffectiveYear(entries, sectionKey, selected);
+  return entries.filter((e) => seasonLabelFor(e.date, sectionKey) === year);
+}
+function listYearTabsHtml(entries, sectionKey, selected, onclickFn) {
+  const years = seasonYearsFor(entries, sectionKey);
+  const year = listEffectiveYear(entries, sectionKey, selected);
+  return `<div class="species-tabs" style="margin-top:10px;">${renderYearTabs(years, year, sectionKey, onclickFn)}</div>`;
+}
+function listEmptyYearHtml(entries, sectionKey, selected) {
+  return `<p class="hint">Nothing logged for ${listEffectiveYear(entries, sectionKey, selected)}. Use the year buttons above to see other years.</p>`;
+}
+
 // The heading row above a list: "Title (count)" on the left, a small gold
 // gear button on the right that opens that list's column chooser.
 function listHeaderHtml(title, count, cogOnclick, cogTitle) {
@@ -40,9 +61,37 @@ function escapeHtml(s) {
 // are kept, shown as "No date", and counted under this label instead of
 // being silently given today's date or breaking the totals.
 const NO_DATE_LABEL = "No date";
-function displayDate(dateStr) {
-  return dateStr ? dateStr : NO_DATE_LABEL;
+// Dates are saved as ISO text (2026-06-19) so sorting and seasons work, but SHOWN the
+// English way: dd-mm-yy (19-06-26).
+function formatDate(dateStr, blank) {
+  const m = String(dateStr || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return blank === undefined ? "" : blank;
+  return `${m[3]}-${m[2]}-${m[1].slice(2)}`;
 }
+function displayDate(dateStr) {
+  return dateStr ? formatDate(dateStr, String(dateStr)) : NO_DATE_LABEL;
+}
+
+// A plain box you type a date into (dd-mm-yy, dd/mm/yy, dd.mm.yyyy… day first), in place of the
+// phone's calendar picker (which follows the phone's own region setting). What's typed is turned
+// back into the ISO text the app saves; something unreadable is refused and the old date restored.
+const DateInput = {
+  // handlerJs is a snippet that receives the ISO date (or "") as `v`, e.g. "SpeciesLog.updateDraft('date', v)"
+  html(iso, handlerJs) {
+    return `<input type="text" inputmode="numeric" placeholder="dd-mm-yy" value="${formatDate(iso)}" data-prev="${formatDate(iso)}" onchange="DateInput.commit(this, function (v) { ${handlerJs}; })" />`;
+  },
+  commit(el, callback) {
+    const text = el.value.trim();
+    if (!text) { callback(""); return; }
+    const iso = parseFlexibleDate(text);
+    if (!iso) {
+      alert("Couldn't read that date. Type it as day-month-year, like 19-06-26.");
+      el.value = el.dataset.prev || "";
+      return;
+    }
+    callback(iso);
+  },
+};
 
 // Turns whatever a spreadsheet cell holds into an ISO "YYYY-MM-DD" string,
 // or "" if it can't be read. Handles Excel serial numbers, ISO strings,

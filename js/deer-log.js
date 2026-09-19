@@ -75,6 +75,7 @@ const DeerLog = {
     if (this.draftIdx === null) this.entries().push(this.draft);
     else this.entries()[this.draftIdx] = this.draft;
     persistData();
+    this.selectedYear = seasonLabelFor(this.draft.date, "deer"); // the list moves to the saved entry's year so it doesn't seem to vanish
     Popup.dirty = false;
     this.draft = null;
     this.draftIdx = null;
@@ -168,6 +169,11 @@ const DeerLog = {
   // what3words typed or pasted by hand is just saved as typed. (Turning typed words into a
   // map position needs a paid what3words plan, so nothing is looked up. Positions come from
   // 📍 Auto (GPS) or from Options > Place pins.)
+  // Coordinates typed by hand (from a GPS, a map, a spreadsheet…): sets the position and, from Other, the property/field.
+  saveCoordinates(value) {
+    return Fields.applyCoordinates(this, value, true);
+  },
+
   saveTypedWords(value) {
     this.draft.what3words = value;
     Popup.markDirty();
@@ -176,7 +182,7 @@ const DeerLog = {
   captureW3w() {
     LocationMatch.captureLocation(async (loc) => {
       if (!loc) return;
-      this.draft.what3words = loc.what3words;
+      if (loc.what3words) this.draft.what3words = loc.what3words; // a failed lookup never wipes words already there
       this.draft.lat = loc.lat;
       this.draft.lng = loc.lng;
       const pinFarm = Fields.propertyForPin(this.draft.farmId, loc.lat, loc.lng); // only replaces "Other"
@@ -241,7 +247,7 @@ const DeerLog = {
 
   groupByField() {
     const groups = {};
-    this.scopedEntries().forEach((e) => {
+    listInYear(this.scopedEntries(), "deer", this.selectedYear).forEach((e) => {
       const key = Fields.nameFor(e.farmId, e.fieldId) || e.location || "(no field name)";
       groups[key] = groups[key] || [];
       groups[key].push(e);
@@ -262,19 +268,16 @@ const DeerLog = {
     const isMale = sex === terms.male;
     const seasonText = isMale ? rule.male : rule.female;
     if (!seasonText || seasonText.includes("No close season") || seasonText === "N/A") return null;
-    // seasonText like "1 Aug – 30 Apr" — a simple month-based open-season check.
-    const monthNames = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"];
-    const match = seasonText.toLowerCase().match(/(\d+)\s+(\w+).*?(\d+)\s+(\w+)/);
-    if (!match) return null;
-    const d = new Date(dateStr);
-    if (isNaN(d)) return null;
-    const month = d.getMonth();
-    const startMonth = monthNames.indexOf(match[2].slice(0, 3));
-    const endMonth = monthNames.indexOf(match[4].slice(0, 3));
-    if (startMonth < 0 || endMonth < 0) return null;
-    const inOpenSeason = startMonth <= endMonth
-      ? (month >= startMonth && month <= endMonth)
-      : (month >= startMonth || month <= endMonth);
+    // The table holds the OPEN season for this species/sex, e.g. "1 Apr – 31 Oct". Compared by exact
+    // day (not whole months), so a season starting on the 21st only opens on the 21st.
+    const range = parseSeasonRange(seasonText);
+    if (!range) return null;
+    let month, day;
+    const iso = String(dateStr || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (iso) { month = parseInt(iso[2], 10) - 1; day = parseInt(iso[3], 10); }
+    else { const d = new Date(dateStr); if (isNaN(d)) return null; month = d.getMonth(); day = d.getDate(); }
+    const value = month * 100 + day, start = range.sm * 100 + range.sd, end = range.em * 100 + range.ed;
+    const inOpenSeason = start <= end ? (value >= start && value <= end) : (value >= start || value <= end);
     return inOpenSeason ? null : `Closed season in ${country} for this date`;
   },
 
@@ -323,7 +326,8 @@ const DeerLog = {
     if (this.speciesWideTab === "list") {
       body.innerHTML = `
         <button class="btn small" style="display:block; width:100%;" onclick="DeerLog.openAddPopup()">+ Add entry</button>
-        ${listHeaderHtml("Entries", this.entries().length, "DeerLog.openColumnSettings()")}
+        ${listYearTabsHtml(this.entries(), "deer", this.selectedYear, "DeerLog.setYear")}
+        ${listHeaderHtml("Entries", listInYear(this.entries(), "deer", this.selectedYear).length, "DeerLog.openColumnSettings()")}
         <p class="hint">Tap a property's name for its total deer shot and the tally by year.</p>
         <div id="deerQuickPropList"></div>`;
       this.renderQuickPropList();
@@ -442,9 +446,10 @@ const DeerLog = {
     const farms = window.APP_DATA.farms || [];
     const el = document.getElementById("deerQuickPropList");
     if (farms.length === 0) { el.innerHTML = `<p class="hint">No properties yet — add one below under Cull Plans.</p>`; return; }
-    const entries = this.entries();
-    const groups = farms.map((f) => ({ id: f.id, name: f.name, list: entries.filter((e) => (e.farmId || "other") === f.id) }));
-    const other = entries.filter((e) => !e.farmId || e.farmId === "other" || !farms.some((f) => f.id === e.farmId));
+    const entries = this.entries();                    // whole list — positions in it are what the edit popup uses
+    const shown = listInYear(entries, "deer", this.selectedYear);   // just the selected year
+    const groups = farms.map((f) => ({ id: f.id, name: f.name, list: shown.filter((e) => (e.farmId || "other") === f.id) }));
+    const other = shown.filter((e) => !e.farmId || e.farmId === "other" || !farms.some((f) => f.id === e.farmId));
     if (other.length) groups.push({ id: "other", name: "Other", list: other });
 
     const cols = this.listColumns();
@@ -750,6 +755,7 @@ const DeerLog = {
         <button class="tab-btn ${this.subView === "log" ? "active" : ""}" onclick="DeerLog.setSubView('log')">Entry Log</button>
         <button class="tab-btn ${this.subView === "by-field" ? "active" : ""}" onclick="DeerLog.setSubView('by-field')">By Field Name</button>
       </div>
+      ${listYearTabsHtml(this.scopedEntries(), "deer", this.selectedYear, "DeerLog.setYear")}
       <div style="margin-top:8px;">${this.subView === "log" ? this.renderFlatLog() : this.renderGroupedByField()}</div>`;
   },
 
@@ -774,7 +780,8 @@ const DeerLog = {
   },
 
   renderFlatLog() {
-    const entries = this.scopedEntries();
+    const entries = listInYear(this.scopedEntries(), "deer", this.selectedYear);
+    if (!entries.length) return listEmptyYearHtml(this.scopedEntries(), "deer", this.selectedYear);
     const rows = entries.slice().sort(compareByDateOldestFirst) // Cull Record Log: plain date order, oldest first, undated last
       .map((e) => {
         const idx = this.entries().indexOf(e);
@@ -808,7 +815,7 @@ const DeerLog = {
     html += `<div style="padding:0 16px 16px;">`;
     if (warning) html += `<div class="compliance-warning">⚠ ${warning}</div>`;
     html += `<div class="log-row">
-      ${Popup.labeled("Date", `<input type="date" value="${e.date}" onchange="DeerLog.updateDraft('date',this.value)" />`)}
+      ${Popup.labeled("Date", `${DateInput.html(e.date, "DeerLog.updateDraft('date', v)")}`)}
       ${Popup.labeled("Species", `<select onchange="DeerLog.updateDraft('species',this.value)">
         ${SPECIES_TERMS[e.species] ? "" : `<option value="" selected>Species…</option>`}
         ${Object.keys(SPECIES_TERMS).map((s) => `<option ${s === e.species ? "selected" : ""}>${s}</option>`).join("")}
@@ -838,7 +845,8 @@ const DeerLog = {
     ${on("what3words") ? `<div class="log-row">
       ${Popup.labeled("what3words", `<input type="text" placeholder="///what3words" value="${e.what3words || ""}" onchange="DeerLog.saveTypedWords(this.value)" />`)}
       <button class="btn small ghost" onclick="DeerLog.captureW3w()">📍 Auto</button>
-    </div>` : ""}
+    </div>
+    <div class="log-row">${Popup.labeled("Coordinates (latitude, longitude)", `<input type="text" placeholder="e.g. 54.9353, -5.1566 or N54° 56.117' W005° 09.396'" value="${Fields.coordinatesText(e)}" onchange="DeerLog.saveCoordinates(this.value)" />`)}</div>` : ""}
     <div class="log-row"><span class="hint" style="margin:0;">🌦️ Weather: ${e.weather || "— (set a location to auto-fill)"}</span></div>
     <div class="log-row"><span class="hint" style="margin:0;">${moonPhaseLabel(e.date) || ""} (that night)</span></div>
     <div class="log-row">
@@ -887,7 +895,7 @@ const DeerLog = {
   renderGroupedByField() {
     const groups = this.groupByField();
     const keys = Object.keys(groups);
-    if (keys.length === 0) return '<p class="hint">No entries yet.</p>';
+    if (keys.length === 0) return listEmptyYearHtml(this.scopedEntries(), "deer", this.selectedYear);
     return keys
       .map((key) => {
         const list = groups[key];

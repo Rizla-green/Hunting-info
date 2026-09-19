@@ -52,8 +52,20 @@ function exportSectionExcel(sectionKey, rows, sheetName) {
     alert("Excel export library didn't load — check your connection and try again.");
     return;
   }
-  const worksheet = XLSX.utils.json_to_sheet(rows);
+  // Dates go into the sheet as real Excel dates (so they sort properly), shown dd-mm-yy.
+  const dated = rows.map((row) => {
+    const out = {};
+    Object.keys(row).forEach((k) => {
+      const m = typeof row[k] === "string" && row[k].match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      out[k] = m ? new Date(+m[1], +m[2] - 1, +m[3], 12) : row[k];
+    });
+    return out;
+  });
+  const worksheet = XLSX.utils.json_to_sheet(dated, { cellDates: true });
+  Object.keys(worksheet).forEach((addr) => {
+    if (addr[0] !== "!" && worksheet[addr] && worksheet[addr].t === "d") worksheet[addr].z = "dd-mm-yy";
+  });
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, sheetName || sectionKey);
-  XLSX.writeFile(workbook, stampedFilename(`hunting-info-${sectionKey}`, "xlsx"));
+  XLSX.writeFile(workbook, stampedFilename(`hunting-info-${sectionKey}`, "xlsx"), { cellDates: true });
 }

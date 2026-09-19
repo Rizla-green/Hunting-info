@@ -27,7 +27,7 @@ const IMPORT_FIELD_DEFS = {
   deer: [
     { key: "date", label: "Date" }, { key: "species", label: "Species" }, { key: "sex", label: "Sex" },
     { key: "age", label: "Age" }, { key: "farmName", label: "Property (farm name)" }, { key: "location", label: "Location" },
-    { key: "what3words", label: "what3words" }, { key: "time", label: "Time" }, { key: "weight", label: "Weight (kg)" },
+    { key: "what3words", label: "what3words" }, { key: "coordinates", label: "Coordinates (lat & long together)" }, { key: "latitude", label: "Latitude" }, { key: "longitude", label: "Longitude" }, { key: "time", label: "Time" }, { key: "weight", label: "Weight (kg)" },
     { key: "tag", label: "Tag no." }, { key: "firearm", label: "Firearm" }, { key: "condition", label: "Condition" },
     { key: "abnormalities", label: "Abnormalities" }, { key: "shotPlacement", label: "Shot placement" },
     { key: "shotBy", label: "Shot by" }, { key: "recordedBy", label: "Inspected by" }, { key: "destination", label: "Destination" },
@@ -36,7 +36,7 @@ const IMPORT_FIELD_DEFS = {
   boar: [
     { key: "date", label: "Date" }, { key: "category", label: "Category (Boar/Sow/Piglet)" },
     { key: "farmName", label: "Property (farm name)" }, { key: "location", label: "Location" },
-    { key: "what3words", label: "what3words" }, { key: "time", label: "Time" }, { key: "weight", label: "Weight (kg)" },
+    { key: "what3words", label: "what3words" }, { key: "coordinates", label: "Coordinates (lat & long together)" }, { key: "latitude", label: "Latitude" }, { key: "longitude", label: "Longitude" }, { key: "time", label: "Time" }, { key: "weight", label: "Weight (kg)" },
     { key: "tag", label: "Tag no." }, { key: "firearm", label: "Firearm" }, { key: "condition", label: "Condition" },
     { key: "abnormalities", label: "Abnormalities" }, { key: "shotPlacement", label: "Shot placement" },
     { key: "shotBy", label: "Shot by" }, { key: "recordedBy", label: "Inspected by" }, { key: "destination", label: "Destination" },
@@ -45,7 +45,7 @@ const IMPORT_FIELD_DEFS = {
   goats: [
     { key: "date", label: "Date" }, { key: "category", label: "Category (Billy/Nanny/Kid)" },
     { key: "farmName", label: "Property (farm name)" }, { key: "location", label: "Location" },
-    { key: "what3words", label: "what3words" }, { key: "time", label: "Time" }, { key: "weight", label: "Weight (kg)" },
+    { key: "what3words", label: "what3words" }, { key: "coordinates", label: "Coordinates (lat & long together)" }, { key: "latitude", label: "Latitude" }, { key: "longitude", label: "Longitude" }, { key: "time", label: "Time" }, { key: "weight", label: "Weight (kg)" },
     { key: "tag", label: "Tag no." }, { key: "firearm", label: "Firearm" }, { key: "condition", label: "Condition" },
     { key: "abnormalities", label: "Abnormalities" }, { key: "shotPlacement", label: "Shot placement" },
     { key: "shotBy", label: "Shot by" }, { key: "recordedBy", label: "Inspected by" }, { key: "destination", label: "Destination" },
@@ -54,28 +54,28 @@ const IMPORT_FIELD_DEFS = {
   fox: [
     { key: "date", label: "Date" }, { key: "category", label: "Category (Dog/Vixen/cub)" },
     { key: "farmName", label: "Property (farm name)" }, { key: "area", label: "Area" }, { key: "shots", label: "Shots (count)" },
-    { key: "what3words", label: "what3words" }, { key: "firearm", label: "Firearm" },
+    { key: "what3words", label: "what3words" }, { key: "coordinates", label: "Coordinates (lat & long together)" }, { key: "latitude", label: "Latitude" }, { key: "longitude", label: "Longitude" }, { key: "firearm", label: "Firearm" },
     { key: "notes", label: "Notes" }, { key: "locationNotes", label: "Location notes" },
   ],
   squirrel: [
     { key: "date", label: "Date" }, { key: "category", label: "Category (Male/Female)" },
     { key: "farmName", label: "Property (farm name)" }, { key: "area", label: "Area" }, { key: "shots", label: "Shots (count)" },
-    { key: "what3words", label: "what3words" }, { key: "firearm", label: "Firearm" },
+    { key: "what3words", label: "what3words" }, { key: "coordinates", label: "Coordinates (lat & long together)" }, { key: "latitude", label: "Latitude" }, { key: "longitude", label: "Longitude" }, { key: "firearm", label: "Firearm" },
     { key: "notes", label: "Notes" }, { key: "locationNotes", label: "Location notes" },
   ],
   rabbit: [
     { key: "date", label: "Date" }, { key: "shots", label: "Amount" }, { key: "farmName", label: "Farm/location name" },
-    { key: "what3words", label: "what3words" }, { key: "firearm", label: "Firearm" },
+    { key: "what3words", label: "what3words" }, { key: "coordinates", label: "Coordinates (lat & long together)" }, { key: "latitude", label: "Latitude" }, { key: "longitude", label: "Longitude" }, { key: "firearm", label: "Firearm" },
     { key: "notes", label: "Notes" }, { key: "locationNotes", label: "Location notes" },
   ],
   rats: [
     { key: "date", label: "Date" }, { key: "shots", label: "Amount" }, { key: "farmName", label: "Farm/location name" },
-    { key: "what3words", label: "what3words" }, { key: "firearm", label: "Firearm" },
+    { key: "what3words", label: "what3words" }, { key: "coordinates", label: "Coordinates (lat & long together)" }, { key: "latitude", label: "Latitude" }, { key: "longitude", label: "Longitude" }, { key: "firearm", label: "Firearm" },
     { key: "notes", label: "Notes" }, { key: "locationNotes", label: "Location notes" },
   ],
   winged: [
     { key: "date", label: "Date" }, { key: "category", label: "Species (Crow/Rook/etc)" }, { key: "shots", label: "Amount" },
-    { key: "farmName", label: "Farm/location name" }, { key: "what3words", label: "what3words" }, { key: "firearm", label: "Firearm" },
+    { key: "farmName", label: "Farm/location name" }, { key: "what3words", label: "what3words" }, { key: "coordinates", label: "Coordinates (lat & long together)" }, { key: "latitude", label: "Latitude" }, { key: "longitude", label: "Longitude" }, { key: "firearm", label: "Firearm" },
     { key: "notes", label: "Notes" }, { key: "locationNotes", label: "Location notes" },
   ],
   game: [
@@ -322,6 +322,19 @@ const DataImport = {
     return m ? { value: m[1], note: "" } : { value: "", note: s };
   },
 
+  // The position on one row, from a "Coordinates" cell (both together) or separate
+  // Latitude / Longitude cells. state: none | ok | outside (not in the UK) | bad (unreadable).
+  coordsFor(row) {
+    const combined = this.rawCell(row, "coordinates");
+    const la = this.rawCell(row, "latitude"), lo = this.rawCell(row, "longitude");
+    let raw = "", res = null;
+    if (combined) { raw = combined; res = parseCoordinates(combined); }
+    else if (la || lo) { raw = `${la} / ${lo}`; res = parseLatLngPair(la, lo); }
+    if (!raw) return { lat: null, lng: null, raw: "", state: "none" };
+    if (!res) return { lat: null, lng: null, raw, state: "bad" };
+    return { lat: res.lat, lng: res.lng, raw, state: isInUK(res.lat, res.lng) ? "ok" : "outside" };
+  },
+
   // Which box the category needs to be counted in its section's tables.
   countKeyFor(cat) {
     if (cat === "deer" || cat === "game") return { key: "species", label: "species" };
@@ -360,7 +373,16 @@ const DataImport = {
       });
     }
     const unknownList = Object.keys(unknownSp);
-    if (skip.size || noDate || noCat || goatRows || noSex || unknownList.length) {
+    let withPin = 0;
+    const badCoords = [], outsideCoords = [];
+    live.forEach((r) => {
+      const c = this.coordsFor(r);
+      if (c.state === "ok" || c.state === "outside") withPin++;
+      if (c.state === "bad") badCoords.push(c.raw);
+      if (c.state === "outside") outsideCoords.push(c.raw);
+    });
+    const eg = (list) => list.slice(0, 5).map((x) => `"${x}"`).join(", ") + (list.length > 5 ? ", …" : "");
+    if (skip.size || noDate || noCat || goatRows || noSex || unknownList.length || withPin || badCoords.length) {
       const lines = [`About to import ${live.length} rows.`];
       if (skip.size) lines.push(`• ${skip.size} single-word heading row(s) (like a section title) are skipped — they aren't entries.`);
       if (goatRows) lines.push(`• ${goatRows} row(s) say Goat. They'll be added to Goats (M → Billy, F → Nanny; anything else left blank), not Deer.`);
@@ -368,10 +390,15 @@ const DataImport = {
       if (noCat) lines.push(`• ${noCat} have no ${ck.label}. They'll be kept and listed, but can't be counted in the ${ck.label} tables until you fill that in.`);
       if (unknownList.length) lines.push(`• Species not recognised (kept exactly as typed, not counted until fixed): ${unknownList.join(", ")}.`);
       if (noSex) lines.push(`• ${noSex} deer have no sex the app can read (blank, "N/A", etc.). They're kept but not counted as male or female.`);
+      if (withPin) lines.push(`• ${withPin} have coordinates and will get a map pin (and their property/field if they were on Other).`);
+      if (badCoords.length) lines.push(`• ${badCoords.length} have coordinates that can't be read (${eg(badCoords)}). They're imported with no pin, and the original text is kept in Notes.`);
+      if (outsideCoords.length) lines.push(`• ${outsideCoords.length} coordinates are outside the UK (${eg(outsideCoords)}). They'll still get pins — check they're right (a swapped latitude and longitude puts a pin in the sea).`);
       lines.push("", "Every other row is kept. Continue?");
       if (!confirm(lines.join("\n"))) return;
     }
     let goatsAdded = 0;
+    const sectionsBefore = {};
+    REHOME_SECTIONS.forEach((k) => { sectionsBefore[k] = (window.APP_DATA.species[k] || []).length; });
 
     this.rows.forEach((row, rowIdx) => {
       if (skip.has(rowIdx)) return;
@@ -397,6 +424,8 @@ const DataImport = {
       // Weight: "14.5KG" -> 14.5, "N/A" -> blank; text that can't be read is kept in Notes.
       const wt = this.parseWeight(get("weight"));
       if (wt.note) base.notes = [base.notes, `Weight in spreadsheet: ${wt.note}`].filter(Boolean).join(" — ");
+      const pin = this.coordsFor(row);
+      if (pin.state === "bad") base.notes = [base.notes, `Coordinates in spreadsheet: ${pin.raw}`].filter(Boolean).join(" — ");
 
       if (cat === "deer" && this.normalizeSpecies(get("species")) === "Goat") {
         // A Goat row in a Deer sheet goes to Goats.
@@ -405,7 +434,7 @@ const DataImport = {
           ...base,
           category: this.goatCategory(get("sex")),
           farmId: this.findFarmIdByName(get("farmName")),
-          location: get("location"), what3words: get("what3words"), lat: null, lng: null, weather: "",
+          location: get("location"), what3words: get("what3words"), lat: pin.lat, lng: pin.lng, weather: "",
           time: get("time"), weight: wt.value, tag: get("tag"), condition: get("condition"),
           abnormalities: get("abnormalities"), shotPlacement: get("shotPlacement"),
           shotBy: get("shotBy"), recordedBy: get("recordedBy"), destination: get("destination"),
@@ -421,7 +450,7 @@ const DataImport = {
           species: sp,
           sex: SPECIES_LIST.includes(sp) ? this.normalizeSex(sp, get("sex")) : get("sex"), age: get("age"),
           farmId: this.findFarmIdByName(get("farmName")),
-          location: get("location"), what3words: get("what3words"), lat: null, lng: null, weather: "",
+          location: get("location"), what3words: get("what3words"), lat: pin.lat, lng: pin.lng, weather: "",
           time: get("time"), weight: wt.value, tag: get("tag"), condition: get("condition"),
           abnormalities: get("abnormalities"), shotPlacement: get("shotPlacement"),
           shotBy: get("shotBy"), recordedBy: get("recordedBy"), destination: get("destination"),
@@ -434,7 +463,7 @@ const DataImport = {
           ...base,
           category: cat === "goats" && this.goatCategory(get("category")) ? this.goatCategory(get("category")) : get("category"),
           farmId: this.findFarmIdByName(get("farmName")),
-          location: get("location"), what3words: get("what3words"), lat: null, lng: null, weather: "",
+          location: get("location"), what3words: get("what3words"), lat: pin.lat, lng: pin.lng, weather: "",
           time: get("time"), weight: wt.value, tag: get("tag"), condition: get("condition"),
           abnormalities: get("abnormalities"), shotPlacement: get("shotPlacement"),
           shotBy: get("shotBy"), recordedBy: get("recordedBy"), destination: get("destination"),
@@ -448,7 +477,7 @@ const DataImport = {
           ...base,
           category: get("category"),
           farmId: this.findFarmIdByName(get("farmName")),
-          area: get("area"), what3words: get("what3words"), lat: null, lng: null, weather: "",
+          area: get("area"), what3words: get("what3words"), lat: pin.lat, lng: pin.lng, weather: "",
           shots: parseInt(get("shots"), 10) || 1, ampm: "",
         });
         created++;
@@ -461,7 +490,7 @@ const DataImport = {
           ...base,
           category: SPECIES_SECTIONS[cat].categories[0],
           farmId, locationText: farmId === "other" ? farmName : "",
-          what3words: get("what3words"), lat: null, lng: null, weather: "",
+          what3words: get("what3words"), lat: pin.lat, lng: pin.lng, weather: "",
           shots: parseInt(get("shots"), 10) || 1,
         });
         created++;
@@ -473,7 +502,7 @@ const DataImport = {
         window.APP_DATA.species.winged.push({
           ...base,
           farmId, locationText: farmId === "other" ? farmName : "",
-          what3words: get("what3words"), lat: null, lng: null, weather: "",
+          what3words: get("what3words"), lat: pin.lat, lng: pin.lng, weather: "",
           lines: [{ category: get("category"), shots: parseInt(get("shots"), 10) || 1 }],
         });
         created++;
@@ -494,7 +523,7 @@ const DataImport = {
         window.APP_DATA.clay.push({
           ...base,
           location: get("location"), clays: parseInt(get("clays"), 10) || 0, hits: parseInt(get("hits"), 10) || 0,
-          what3words: get("what3words"), lat: null, lng: null,
+          what3words: get("what3words"), lat: pin.lat, lng: pin.lng,
         });
         if (get("location")) ClayShooting.addGround(get("location"));
         created++;
@@ -512,12 +541,28 @@ const DataImport = {
       }
     });
 
+    // Entries that arrived with coordinates: pick the property (only if it's on Other) and the field.
+    let pinned = 0;
+    REHOME_SECTIONS.forEach((k) => {
+      (window.APP_DATA.species[k] || []).slice(sectionsBefore[k]).forEach((e) => {
+        if (e.lat === null || e.lat === undefined) return;
+        pinned++;
+        const farmId = Fields.propertyForPin(e.farmId, e.lat, e.lng);
+        if (farmId) e.farmId = farmId;
+        if (FIELD_SECTIONS.includes(k) && Fields.isRealFarm(e.farmId)) {
+          const f = Fields.findForPoint(e.farmId, e.lat, e.lng);
+          if (f) e.fieldId = f.id;
+        }
+      });
+    });
+
     persistData();
     Popup.setBody(`
       ${Popup.header("Import complete")}
       <div style="padding:0 16px 16px;">
         <p>Imported <strong>${created}</strong> ${IMPORT_CATEGORY_LABELS[cat]} entries${goatsAdded ? ` (${goatsAdded} of them were goats and went into Goats)` : ""}${photosAttached ? `, with ${photosAttached} photo(s) attached` : ""}.</p>
         ${skip.size ? `<p class="hint">${skip.size} heading row(s) were skipped.</p>` : ""}
+        ${pinned ? `<p class="hint">${pinned} entr${pinned === 1 ? "y" : "ies"} got a map pin from their coordinates.</p>` : ""}
         <p class="hint">Photos were matched by which row they sit on in the spreadsheet — spot-check a few entries, especially any with multiple photos, before importing the rest of your data.</p>
         <button class="btn popup-save-btn" onclick="Popup.close()">Done</button>
       </div>`);

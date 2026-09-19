@@ -4,4 +4,4 @@
 //   2. The filename/header stamped into downloaded exports
 //   3. The service worker cache name (a changed cache name is what
 //      forces the phone to fetch fresh files next time it's online)
-const APP_VERSION = "4.17.6";
+const APP_VERSION = "4.17.8";
