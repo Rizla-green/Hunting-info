@@ -514,7 +514,8 @@ const DataImport = {
           what3words: "", lat: null, lng: null, weather: "",
           gunsStanding: parseInt(get("gunsStanding"), 10) || 1,
           dayTotalShots: 0, dayTotal: [],
-          species: [{ species: get("species"), hits: parseInt(get("hits"), 10) || 0, shotsTaken: parseInt(get("shotsTaken"), 10) || 0 }],
+          shotsTaken: parseInt(get("shotsTaken"), 10) || 0,   // one figure for the whole day
+          species: [{ species: get("species"), hits: parseInt(get("hits"), 10) || 0 }],
         });
         if (get("location")) GameShooting.addLocation(get("location"));
         created++;

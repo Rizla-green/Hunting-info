@@ -113,23 +113,34 @@ function displayDate(dateStr) {
 // phone's calendar picker (which follows the phone's own region setting). What's typed is turned
 // back into the ISO text the app saves; something unreadable is refused and the old date restored.
 const DateInput = {
-  // handlerJs is a snippet that receives the ISO date (or "") as `v`, e.g. "SpeciesLog.updateDraft('date', v)"
+  // handlerJs is a snippet that receives the ISO date (or "") as `v`, e.g. "SpeciesLog.updateDraft('date', v)".
+  // Two ways in: type it (digits alone are fine: 190626) or tap the calendar button.
   html(iso, handlerJs) {
-    return `<input type="text" inputmode="numeric" placeholder="dd-mm-yy" value="${formatDate(iso)}" data-prev="${formatDate(iso)}" onchange="DateInput.commit(this, function (v) { ${handlerJs}; })" />`;
+    const shown = formatDate(iso);
+    return `<span class="date-wrap">
+      <input type="text" inputmode="numeric" placeholder="dd-mm-yy" value="${shown}" data-prev="${shown}" onchange="DateInput.commit(this, function (v) { ${handlerJs}; })" />
+      <span class="date-btn" title="Pick from a calendar">📅<input type="date" class="date-native" value="${iso || ""}" aria-label="Pick from a calendar" onchange="DateInput.picked(this, function (v) { ${handlerJs}; })" /></span>
+    </span>`;
   },
   commit(el, callback) {
     const text = el.value.trim();
     if (!text) { callback(""); return; }
     const iso = parseFlexibleDate(text);
     if (!iso) {
-      alert("Couldn't read that date. Type it as day-month-year, like 19-06-26.");
+      alert("Couldn't read that date. Type it as day-month-year, like 19-06-26 (or just 190626).");
       el.value = el.dataset.prev || "";
       return;
     }
     callback(iso);
   },
+  picked(nativeEl, callback) {
+    const iso = nativeEl.value;
+    if (!iso) return;
+    const box = nativeEl.closest(".date-wrap") && nativeEl.closest(".date-wrap").querySelector("input[type=text]");
+    if (box) { box.value = formatDate(iso); box.dataset.prev = box.value; }
+    callback(iso);
+  },
 };
-
 // Turns whatever a spreadsheet cell holds into an ISO "YYYY-MM-DD" string,
 // or "" if it can't be read. Handles Excel serial numbers, ISO strings,
 // UK-style dd/mm/yyyy (and dd-mm-yy, dd.mm.yyyy), US-style when the day
@@ -155,7 +166,14 @@ function parseFlexibleDate(value) {
   if (!s) return "";
   let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:$|[T\s])/);
   if (m) return valid(+m[1], +m[2], +m[3]);
-  m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2}|\d{4})(?:$|[T\s,])/);
+  // Plain digits with no separators (a phone number pad has no dash): 190626 or 19062026, day first.
+  m = s.match(/^(\d{2})(\d{2})(\d{2}|\d{4})$/);
+  if (m && (m[3].length === 2 || m[3].length === 4)) {
+    let y = +m[3];
+    if (m[3].length === 2) y += y < 70 ? 2000 : 1900;
+    return valid(y, +m[2], +m[1]);
+  }
+  m = s.match(/^(\d{1,2})[\/\-.\s](\d{1,2})[\/\-.\s](\d{2}|\d{4})(?:$|[T\s,])/);
   if (m) {
     let a = +m[1], b = +m[2], y = +m[3];
     if (m[3].length === 2) y += y < 70 ? 2000 : 1900;
@@ -163,7 +181,8 @@ function parseFlexibleDate(value) {
     if (b > 12 && a <= 12) return valid(y, a, b);
     return valid(y, b, a);
   }
-  const parsed = new Date(s);
+  // Text dates like "19 Sep 2026" — but only if there are letters in it (a bare "2026" isn't a date).
+  const parsed = /[a-z]/i.test(s) ? new Date(s) : new Date(NaN);
   if (!isNaN(parsed)) return valid(parsed.getFullYear(), parsed.getMonth() + 1, parsed.getDate());
   return "";
 }

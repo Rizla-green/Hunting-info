@@ -139,6 +139,7 @@ const SpeciesLog = {
       category: def.categories[0],
       shots: 1,
       ...(FLAT_SECTIONS.includes(this.currentSection) ? { lines: [{ category: def.categories[0], shots: 1 }] } : {}),
+      ...(this.currentSection === "winged" ? { shotsTaken: "" } : {}),   // one figure for the whole day, blank until entered
       firearm: "",
       weight: "", tag: "", condition: (typeof DEER_CONDITIONS !== "undefined" ? DEER_CONDITIONS[0] : "Good"),
       abnormalities: "", shotPlacement: "", shotBy: "", recordedBy: "", destination: "",
@@ -218,6 +219,31 @@ const SpeciesLog = {
   // Coordinates typed by hand (from a GPS, a map, a spreadsheet…): sets the position and, from Other, the property/field.
   saveCoordinates(value) {
     return Fields.applyCoordinates(this, value, FIELD_SECTIONS.includes(this.currentSection));
+  },
+
+  // Location box on Rabbit / Rats / Winged Vermin: a property, a saved place, a new place, or "Other".
+  setFlatLocation(value) {
+    if (value === "__add_place__") {
+      const added = Places.add(prompt("New place name:"));
+      if (added) { this.draft.farmId = "other"; this.draft.locationText = added; Popup.markDirty(); }
+      Popup.setBody(this.renderPopupBody());
+      return;
+    }
+    if (value.startsWith("place:")) {
+      this.draft.farmId = "other";
+      this.draft.locationText = value.slice(6);
+      Popup.markDirty();
+      Popup.setBody(this.renderPopupBody());
+      return;
+    }
+    if (value === "other") {
+      this.draft.farmId = "other";
+      if (Places.saved().includes(this.draft.locationText)) this.draft.locationText = ""; // leaving a saved place: start the typing box empty
+      Popup.markDirty();
+      Popup.setBody(this.renderPopupBody());
+      return;
+    }
+    this.updateDraft("farmId", value);
   },
 
   saveTypedWords(value) {
@@ -499,18 +525,27 @@ const SpeciesLog = {
           </div>`;
         });
         html += `<button class="btn small ghost" onclick="SpeciesLog.addDraftLine()">+ Add species</button>`;
+        html += `<div class="log-row" style="margin-top:8px;">${Popup.labeled("Shots taken (whole day)", `<input type="number" min="0" placeholder="Shots taken" value="${e.shotsTaken === undefined || e.shotsTaken === null ? "" : e.shotsTaken}" onchange="SpeciesLog.updateDraft('shotsTaken',this.value)" />`)}</div>`;
       } else {
         html += `<div class="log-row"><label style="width:120px;"><span class="hint" style="display:block; margin:0 0 2px;">Amount</span><input type="number" min="0" placeholder="Amount" value="${e.shots}" onchange="SpeciesLog.updateDraft('shots',this.value)" /></label></div>`;
       }
+      // Location: your properties, then the places you've saved (Game Shooting, Clay, Zeroing, earlier "Other" places),
+      // then "+ Add new place" / "Other (type below)". Saved places are NOT properties.
+      const saved = Places.saved();
+      const onOther = !e.farmId || e.farmId === "other";
+      const onPlace = onOther && e.locationText && saved.includes(e.locationText);
+      const sel = onPlace ? "place:" + e.locationText : (onOther ? "other" : e.farmId);
       html += `<div class="log-row">
-        <label style="flex:1;"><span class="hint" style="display:block; margin:0 0 2px;">Location (farm)</span>
-        <select onchange="SpeciesLog.updateDraft('farmId',this.value)">
-          ${farms.map((f) => `<option value="${f.id}" ${e.farmId === f.id ? "selected" : ""}>${f.name}</option>`).join("")}
-          <option value="other" ${!e.farmId || e.farmId === "other" ? "selected" : ""}>Other (type below)</option>
+        <label style="flex:1;"><span class="hint" style="display:block; margin:0 0 2px;">Location</span>
+        <select onchange="SpeciesLog.setFlatLocation(this.value)">
+          ${farms.length ? `<optgroup label="My properties">${farms.map((f) => `<option value="${f.id}" ${sel === f.id ? "selected" : ""}>${escapeHtml(f.name)}</option>`).join("")}</optgroup>` : ""}
+          ${saved.length ? `<optgroup label="Saved places">${saved.map((p) => `<option value="place:${escapeHtml(p)}" ${sel === "place:" + p ? "selected" : ""}>${escapeHtml(p)}</option>`).join("")}</optgroup>` : ""}
+          <option value="__add_place__">+ Add new place</option>
+          <option value="other" ${sel === "other" ? "selected" : ""}>Other (type below)</option>
         </select></label>
       </div>`;
-      if (!e.farmId || e.farmId === "other") {
-        html += `<div class="log-row"><label style="flex:1;"><span class="hint" style="display:block; margin:0 0 2px;">Type a location</span><input type="text" placeholder="Type a location" value="${e.locationText || ""}" onchange="SpeciesLog.updateDraft('locationText',this.value)" /></label></div>`;
+      if (sel === "other") {
+        html += `<div class="log-row"><label style="flex:1;"><span class="hint" style="display:block; margin:0 0 2px;">Type a location</span><input type="text" placeholder="Type a location" value="${escapeHtml(e.locationText || "")}" onchange="SpeciesLog.updateDraft('locationText',this.value)" /></label></div>`;
       }
     } else if (isRich) {
       const conditions = (typeof DEER_CONDITIONS !== "undefined") ? DEER_CONDITIONS : ["Good", "Fair", "Poor", "Rejected"];

@@ -189,7 +189,10 @@ const Firearms = {
       (species[key] || []).forEach((e) => {
         if (e.firearm !== name) return;
         if (key === "winged" && Array.isArray(e.lines)) {
-          total += e.lines.reduce((s, l) => s + (parseInt(l.shots, 10) || 0), 0);
+          // One "Shots taken (whole day)" figure when entered; otherwise the species amounts, as before.
+          total += (e.shotsTaken !== undefined && e.shotsTaken !== null && e.shotsTaken !== "")
+            ? (parseInt(e.shotsTaken, 10) || 0)
+            : e.lines.reduce((s, l) => s + (parseInt(l.shots, 10) || 0), 0);
         } else if (key === "deer") {
           total += 1; // one Deer entry = one animal, no separate shots-fired figure recorded
         } else {
@@ -201,7 +204,7 @@ const Firearms = {
     (window.APP_DATA.zeroing || []).forEach((s) => { if (Array.isArray(window.APP_DATA.zeroing) && s.rifle === name) total += parseInt(s.shots, 10) || 0; });
     (window.APP_DATA.gameShooting || []).forEach((day) => {
       if (day.firearm !== name) return;
-      total += (day.species || []).reduce((s, l) => s + (parseInt(l.shotsTaken, 10) || 0), 0);
+      total += GameShooting.dayShotsTaken(day);
     });
     return total;
   },

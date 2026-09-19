@@ -44,8 +44,16 @@ const GameShooting = {
     this.render();
   },
 
+  // Shots fired that day — ONE figure for the whole day. Days saved before this was a single box
+  // still have the figure spread across their species lines; those are added up until the day is
+  // edited and a single figure is entered.
+  dayShotsTaken(day) {
+    if (day.shotsTaken !== undefined && day.shotsTaken !== null && day.shotsTaken !== "") return parseInt(day.shotsTaken, 10) || 0;
+    return (day.species || []).reduce((s, l) => s + (parseInt(l.shotsTaken, 10) || 0), 0);
+  },
+
   dayTotals(day) {
-    const shotsTaken = (day.species || []).reduce((s, l) => s + (parseInt(l.shotsTaken, 10) || 0), 0);
+    const shotsTaken = this.dayShotsTaken(day);
     const hits = (day.species || []).reduce((s, l) => s + (parseInt(l.hits, 10) || 0), 0);
     const pct = shotsTaken > 0 ? Math.round((hits / shotsTaken) * 100) : 0;
     return { shotsTaken, hits, pct };
@@ -63,7 +71,8 @@ const GameShooting = {
       gunsStanding: 1, // "Total guns" in the Day Total block
       firearm: "", notes: "",
       locationNotes: "",
-      species: DEFAULT_THREE.map((s) => ({ species: s, hits: 0, shotsTaken: 0 })),
+      shotsTaken: "",   // ONE figure for the whole day, blank until entered
+      species: DEFAULT_THREE.map((s) => ({ species: s, hits: 0 })),
       dayTotalShots: 0, // "Total shots" in the Day Total block
       // Rough species-by-species tally for the day only — never feeds any running total elsewhere.
       dayTotal: DEFAULT_THREE.map((s) => ({ species: s, amount: 0 })),
@@ -157,7 +166,7 @@ const GameShooting = {
   },
 
   addSpeciesLine() {
-    this.draft.species.push({ species: GAME_BIRD_LIST[0], hits: 0, shotsTaken: 0 });
+    this.draft.species.push({ species: GAME_BIRD_LIST[0], hits: 0 });
     Popup.markDirty();
     Popup.setBody(this.renderPopupBody());
   },
@@ -258,7 +267,6 @@ const GameShooting = {
             ${GAME_BIRD_LIST.map((b) => `<option ${b === line.species ? "selected" : ""}>${b}</option>`).join("")}
           </select>`)}
           ${Popup.labeled("Shot", `<input type="number" min="0" placeholder="Shot" value="${line.hits}" onchange="GameShooting.updateSpeciesLine(${lineIdx},'hits',this.value)" style="width:90px;" />`, "flex:none;")}
-          ${Popup.labeled("Shots taken", `<input type="number" min="0" placeholder="Shots taken" value="${line.shotsTaken}" onchange="GameShooting.updateSpeciesLine(${lineIdx},'shotsTaken',this.value)" style="width:100px;" />`, "flex:none;")}
           <button class="icon-btn" style="align-self:flex-end;" onclick="GameShooting.removeSpeciesLine(${lineIdx})">✕</button>
         </div>`)
       .join("");
@@ -283,7 +291,7 @@ const GameShooting = {
     html += `<div class="log-row">
       ${Popup.labeled("Location", `<select onchange="GameShooting.handleLocationChange(this)">
         <option value="" ${!day.location ? "selected" : ""}>Location…</option>
-        ${locations.map((l) => `<option ${l === day.location ? "selected" : ""}>${l}</option>`).join("")}
+        ${Places.optionsHtml(day.location)}
         <option value="__add_new__">+ Add new location…</option>
       </select>`)}
     </div>`;
@@ -304,9 +312,9 @@ const GameShooting = {
     html += `<div class="log-row">${Popup.labeled("Notes", `<input type="text" placeholder="Notes" value="${day.notes || ""}" onchange="GameShooting.updateDraft('notes',this.value)" />`)}</div>`;
 
     html += `<div class="section-title" style="margin-top:12px;"><h4>Species shot today</h4></div>`;
-    html += `<div class="log-row hint" style="margin:0 0 4px;"><span style="flex:1;">Species</span><span style="width:90px;">Shot</span><span style="width:100px;">Shots taken</span><span style="width:24px;"></span></div>`;
     html += speciesRows;
     html += `<button class="btn small ghost" onclick="GameShooting.addSpeciesLine()">+ Add species</button>`;
+    html += `<div class="log-row" style="margin-top:8px;">${Popup.labeled("Shots taken (whole day)", `<input type="number" min="0" placeholder="Shots taken" value="${day.shotsTaken !== undefined && day.shotsTaken !== null && day.shotsTaken !== "" ? day.shotsTaken : (t.shotsTaken || "")}" onchange="GameShooting.updateDraft('shotsTaken',this.value)" />`)}</div>`;
     html += `<div class="log-row" style="margin-top:10px;"><span class="hint" style="margin:0;">Calculated from the table above: ${t.hits} shot / ${t.shotsTaken} shots taken</span></div>`;
     html += `<div class="stat-cards" style="margin-top:6px;">
       <div class="stat-card"><div class="num">${t.pct}%</div><div class="lbl">Your shots-to-hits ratio</div></div>
