@@ -62,6 +62,7 @@ const GameShooting = {
       what3words: "", lat: null, lng: null, weather: "",
       gunsStanding: 1, // "Total guns" in the Day Total block
       firearm: "", notes: "",
+      locationNotes: "",
       species: DEFAULT_THREE.map((s) => ({ species: s, hits: 0, shotsTaken: 0 })),
       dayTotalShots: 0, // "Total shots" in the Day Total block
       // Rough species-by-species tally for the day only — never feeds any running total elsewhere.
@@ -272,30 +273,31 @@ const GameShooting = {
     let html = Popup.header("Game Shooting Day");
     html += `<div style="padding:0 16px 16px;">`;
     html += `<div class="log-row">
-      <input type="date" value="${day.date}" onchange="GameShooting.updateDraft('date',this.value)" />
-      <input type="text" placeholder="Shoot name" value="${day.shootName || ""}" onchange="GameShooting.updateDraft('shootName',this.value)" />
+      ${Popup.labeled("Date", `<input type="date" value="${day.date}" onchange="GameShooting.updateDraft('date',this.value)" />`)}
+      ${Popup.labeled("Shoot name", `<input type="text" placeholder="Shoot name" value="${day.shootName || ""}" onchange="GameShooting.updateDraft('shootName',this.value)" />`)}
     </div>`;
     html += `<div class="log-row">
-      <select onchange="GameShooting.handleLocationChange(this)">
+      ${Popup.labeled("Location", `<select onchange="GameShooting.handleLocationChange(this)">
         <option value="" ${!day.location ? "selected" : ""}>Location…</option>
         ${locations.map((l) => `<option ${l === day.location ? "selected" : ""}>${l}</option>`).join("")}
         <option value="__add_new__">+ Add new location…</option>
-      </select>
+      </select>`)}
     </div>`;
     html += `<div class="log-row">
-      <input type="text" placeholder="///what3words" value="${day.what3words || ""}" onchange="GameShooting.updateDraft('what3words',this.value)" />
+      ${Popup.labeled("what3words", `<input type="text" placeholder="///what3words" value="${day.what3words || ""}" onchange="GameShooting.updateDraft('what3words',this.value)" />`)}
       <button class="btn small ghost" onclick="GameShooting.captureW3w()">📍 Auto</button>
     </div>`;
     html += `<div class="log-row"><span class="hint" style="margin:0;">🌦️ Weather: ${day.weather || "— (set a location to auto-fill)"}</span></div>`;
     html += `<div class="log-row"><span class="hint" style="margin:0;">${moonPhaseLabel(day.date) || ""} (that night)</span></div>`;
     html += `<div class="log-row">
-      <select onchange="GameShooting.handleFirearmChange(this)">
+      ${Popup.labeled("Firearm", `<select onchange="GameShooting.handleFirearmChange(this)">
         <option value="" ${!day.firearm ? "selected" : ""}>Firearm…</option>
         ${Firearms.list().map((f) => `<option ${f === day.firearm ? "selected" : ""}>${f}</option>`).join("")}
         <option value="__add_new__">+ Add new firearm…</option>
-      </select>
+      </select>`)}
     </div>`;
-    html += `<div class="log-row"><input type="text" placeholder="Notes" value="${day.notes || ""}" onchange="GameShooting.updateDraft('notes',this.value)" /></div>`;
+    html += `<div class="log-row">${Popup.labeled("Location notes", `<input type="text" placeholder="On-the-ground spot description" value="${day.locationNotes || ""}" onchange="GameShooting.updateDraft('locationNotes',this.value)" />`)}</div>`;
+    html += `<div class="log-row">${Popup.labeled("Notes", `<input type="text" placeholder="Notes" value="${day.notes || ""}" onchange="GameShooting.updateDraft('notes',this.value)" />`)}</div>`;
 
     html += `<div class="section-title" style="margin-top:12px;"><h4>Species shot today</h4></div>`;
     html += `<div class="log-row hint" style="margin:0 0 4px;"><span style="flex:1;">Species</span><span style="width:90px;">Shot</span><span style="width:100px;">Shots taken</span><span style="width:24px;"></span></div>`;

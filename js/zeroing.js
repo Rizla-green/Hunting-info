@@ -47,6 +47,7 @@ const Zeroing = {
       adjusted: false,
       adjustmentNotes: "",
       photos: [],
+      locationNotes: "",
     };
   },
 
@@ -203,27 +204,27 @@ const Zeroing = {
     let html = Popup.header("Zeroing Session");
     html += `<div style="padding:0 16px 16px;">`;
     html += `<div class="log-row">
-      <input type="date" value="${s.date}" onchange="Zeroing.updateDraft('date',this.value)" />
-      <select onchange="Zeroing.handleRifleChange(this)">
+      ${Popup.labeled("Date", `<input type="date" value="${s.date}" onchange="Zeroing.updateDraft('date',this.value)" />`)}
+      ${Popup.labeled("Rifle", `<select onchange="Zeroing.handleRifleChange(this)">
         <option value="" ${!s.rifle ? "selected" : ""}>Rifle…</option>
         ${rifles.map((f) => `<option ${f === s.rifle ? "selected" : ""}>${f}</option>`).join("")}
         <option value="__add_new__">+ Add new firearm…</option>
-      </select>
+      </select>`)}
     </div>
     <div class="log-row">
-      <select onchange="Zeroing.handleLocationChange(this)">
+      ${Popup.labeled("Location", `<select onchange="Zeroing.handleLocationChange(this)">
         <option value="" ${!s.location ? "selected" : ""}>Location…</option>
         ${locations.map((l) => `<option ${l === s.location ? "selected" : ""}>${l}</option>`).join("")}
         <option value="__add_new__">+ Add new location…</option>
-      </select>
+      </select>`)}
     </div>
     <div class="log-row">
-      <input type="text" placeholder="///what3words" value="${s.what3words || ""}" onchange="Zeroing.updateDraft('what3words',this.value)" />
+      ${Popup.labeled("what3words", `<input type="text" placeholder="///what3words" value="${s.what3words || ""}" onchange="Zeroing.updateDraft('what3words',this.value)" />`)}
       <button class="btn small ghost" onclick="Zeroing.captureW3w()">📍 Auto</button>
     </div>
     <div class="log-row">
-      <input type="number" placeholder="Distance zeroed (m)" value="${s.distance}" onchange="Zeroing.updateDraft('distance',this.value)" style="width:160px;" />
-      <input type="number" min="1" placeholder="Shots fired" value="${s.shots}" onchange="Zeroing.updateDraft('shots',this.value)" style="width:120px;" />
+      ${Popup.labeled("Distance zeroed (m)", `<input type="number" placeholder="Distance zeroed (m)" value="${s.distance}" onchange="Zeroing.updateDraft('distance',this.value)" />`)}
+      ${Popup.labeled("Shots fired", `<input type="number" min="1" placeholder="Shots fired" value="${s.shots}" onchange="Zeroing.updateDraft('shots',this.value)" />`)}
     </div>
     <div class="log-row">
       <label style="display:flex;align-items:center;gap:6px;font-size:13px;">
@@ -232,6 +233,7 @@ const Zeroing = {
       </label>
       ${s.adjusted ? `<button class="btn small ghost" onclick="Zeroing.openAdjustmentNotes()">📝 Adjustment notes${s.adjustmentNotes ? " ✓" : ""}</button>` : ""}
     </div>
+    <div class="log-row">${Popup.labeled("Location notes", `<input type="text" placeholder="On-the-ground spot description" value="${s.locationNotes || ""}" onchange="Zeroing.updateDraft('locationNotes',this.value)" />`)}</div>
     <div class="log-row photo-row">
       ${photoThumbs}
       <label class="btn small ghost" style="cursor:pointer;">+ Photo

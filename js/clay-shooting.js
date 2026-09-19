@@ -49,6 +49,7 @@ const ClayShooting = {
       lng: null,
       photos: [],
       notes: "",
+      locationNotes: "",
     };
   },
 
@@ -219,34 +220,31 @@ const ClayShooting = {
     let html = Popup.header("Clay Shooting Entry");
     html += `<div style="padding:0 16px 16px;">`;
     html += `<div class="log-row">
-      <input type="date" value="${e.date}" onchange="ClayShooting.updateDraft('date',this.value)" />
-      <select onchange="ClayShooting.handleLocationChange(this)">
+      ${Popup.labeled("Date", `<input type="date" value="${e.date}" onchange="ClayShooting.updateDraft('date',this.value)" />`)}
+      ${Popup.labeled("Ground", `<select onchange="ClayShooting.handleLocationChange(this)">
         <option value="" ${!e.location ? "selected" : ""}>Ground…</option>
         ${grounds.map((g) => `<option ${g === e.location ? "selected" : ""}>${g}</option>`).join("")}
         <option value="__add_new__">+ Add new ground…</option>
-      </select>
+      </select>`)}
     </div>
     <div class="log-row">
-      <label style="flex:1;"><span class="hint" style="display:block; margin:0 0 2px;">Clays</span>
-        <input type="number" min="0" placeholder="Clays" value="${e.clays}" onchange="ClayShooting.updateDraft('clays',this.value)" />
-      </label>
-      <label style="flex:1;"><span class="hint" style="display:block; margin:0 0 2px;">Hits</span>
-        <input type="number" min="0" placeholder="Hits" value="${e.hits}" onchange="ClayShooting.updateDraft('hits',this.value)" />
-      </label>
+      ${Popup.labeled("Clays", `<input type="number" min="0" placeholder="Clays" value="${e.clays}" onchange="ClayShooting.updateDraft('clays',this.value)" />`)}
+      ${Popup.labeled("Hits", `<input type="number" min="0" placeholder="Hits" value="${e.hits}" onchange="ClayShooting.updateDraft('hits',this.value)" />`)}
     </div>
     <div class="log-row"><span class="hint" style="margin:0;">${pct}% hit</span></div>
     <div class="log-row">
-      <input type="text" placeholder="///what3words" value="${e.what3words || ""}" onchange="ClayShooting.updateDraft('what3words',this.value)" />
+      ${Popup.labeled("what3words", `<input type="text" placeholder="///what3words" value="${e.what3words || ""}" onchange="ClayShooting.updateDraft('what3words',this.value)" />`)}
       <button class="btn small ghost" onclick="ClayShooting.captureW3w()">📍 Auto</button>
     </div>
     <div class="log-row">
-      <select onchange="ClayShooting.handleFirearmChange(this)">
+      ${Popup.labeled("Firearm", `<select onchange="ClayShooting.handleFirearmChange(this)">
         <option value="" ${!e.firearm ? "selected" : ""}>Firearm…</option>
         ${Firearms.list().map((f) => `<option ${f === e.firearm ? "selected" : ""}>${f}</option>`).join("")}
         <option value="__add_new__">+ Add new firearm…</option>
-      </select>
+      </select>`)}
     </div>
-    <div class="log-row"><input type="text" placeholder="Notes" value="${e.notes || ""}" onchange="ClayShooting.updateDraft('notes',this.value)" /></div>
+    <div class="log-row">${Popup.labeled("Location notes", `<input type="text" placeholder="On-the-ground spot description" value="${e.locationNotes || ""}" onchange="ClayShooting.updateDraft('locationNotes',this.value)" />`)}</div>
+    <div class="log-row">${Popup.labeled("Notes", `<input type="text" placeholder="Notes" value="${e.notes || ""}" onchange="ClayShooting.updateDraft('notes',this.value)" />`)}</div>
     <div class="log-row photo-row">
       ${photoThumbs}
       <label class="btn small ghost" style="cursor:pointer;">+ Photo

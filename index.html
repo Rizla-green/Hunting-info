@@ -50,6 +50,12 @@
     </section>
 
     <section class="options-section">
+      <h3>Import data</h3>
+      <p class="options-hint">Import an Excel sheet of past records into any category. Works for a fresh category with no entries yet — pick the category, map your sheet's columns to the app's fields, and preview before importing. Photos embedded in the sheet (e.g. Fox's right/left/group photos) are picked up automatically from whichever row they sit on.</p>
+      <button id="importDataBtn" onclick="DataImport.open()">Import data…</button>
+    </section>
+
+    <section class="options-section">
       <h3>Export</h3>
       <p class="options-hint">Export the full dataset, or open a section and use its own export button for just that species/area.</p>
       <button id="exportEverythingBtn">Export everything (JSON)</button>
@@ -65,6 +71,7 @@
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -91,6 +98,7 @@
   <script src="js/zeroing.js"></script>
   <script src="js/firearms.js"></script>
   <script src="js/cull-plan-import.js"></script>
+  <script src="js/data-import.js"></script>
   <script src="js/tracking.js"></script>
   <script src="js/reference-info.js"></script>
   <script src="js/app.js"></script>

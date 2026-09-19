@@ -44,6 +44,7 @@ const DeerLog = {
       time: "", weight: "", tag: "", firearm: "", condition: DEER_CONDITIONS[0],
       abnormalities: "", shotPlacement: "", shotBy: "", recordedBy: "", destination: "",
       photos: [], notes: "",
+      locationNotes: "",
     };
   },
 
@@ -783,60 +784,65 @@ const DeerLog = {
     html += `<div style="padding:0 16px 16px;">`;
     if (warning) html += `<div class="compliance-warning">⚠ ${warning}</div>`;
     html += `<div class="log-row">
-      <input type="date" value="${e.date}" onchange="DeerLog.updateDraft('date',this.value)" />
-      <select onchange="DeerLog.updateDraft('species',this.value)">
+      ${Popup.labeled("Date", `<input type="date" value="${e.date}" onchange="DeerLog.updateDraft('date',this.value)" />`)}
+      ${Popup.labeled("Species", `<select onchange="DeerLog.updateDraft('species',this.value)">
         ${Object.keys(SPECIES_TERMS).map((s) => `<option ${s === e.species ? "selected" : ""}>${s}</option>`).join("")}
-      </select>
+      </select>`)}
     </div>
     <div class="log-row">
-      <select onchange="DeerLog.updateDraft('sex',this.value)">
+      ${Popup.labeled("Sex", `<select onchange="DeerLog.updateDraft('sex',this.value)">
         ${this.sexOptionsFor(e.species).map((s) => `<option ${s === e.sex ? "selected" : ""}>${s}</option>`).join("")}
-      </select>
-      <select onchange="DeerLog.updateDraft('age',this.value)">
+      </select>`)}
+      ${Popup.labeled("Age", `<select onchange="DeerLog.updateDraft('age',this.value)">
         ${["Adult", "Young"].map((a) => `<option ${a === e.age ? "selected" : ""}>${a}</option>`).join("")}
-      </select>
+      </select>`)}
     </div>
     <div class="log-row">
-      <select onchange="DeerLog.updateDraft('farmId',this.value)">
+      ${Popup.labeled("Property", `<select onchange="DeerLog.updateDraft('farmId',this.value)">
         ${farms.map((f) => `<option value="${f.id}" ${e.farmId === f.id ? "selected" : ""}>${f.name}</option>`).join("")}
         <option value="other" ${!e.farmId || e.farmId === "other" ? "selected" : ""}>Other</option>
-      </select>
+      </select>`)}
     </div>
     <div class="log-row">
-      ${on("location") ? `<input type="text" placeholder="Location" value="${e.location || ""}" onchange="DeerLog.updateDraft('location',this.value)" />` : ""}
-      ${on("time") ? `<input type="time" value="${e.time || ""}" onchange="DeerLog.updateDraft('time',this.value)" style="width:100px;" />` : ""}
+      ${on("location") ? Popup.labeled("Location", `<input type="text" placeholder="Location" value="${e.location || ""}" onchange="DeerLog.updateDraft('location',this.value)" />`) : ""}
+      ${on("time") ? Popup.labeled("Time", `<input type="time" value="${e.time || ""}" onchange="DeerLog.updateDraft('time',this.value)" />`, "width:100px;") : ""}
     </div>
     ${on("what3words") ? `<div class="log-row">
-      <input type="text" placeholder="///what3words" value="${e.what3words || ""}" onchange="DeerLog.updateDraft('what3words',this.value)" />
+      ${Popup.labeled("what3words", `<input type="text" placeholder="///what3words" value="${e.what3words || ""}" onchange="DeerLog.updateDraft('what3words',this.value)" />`)}
       <button class="btn small ghost" onclick="DeerLog.captureW3w()">📍 Auto</button>
     </div>` : ""}
     <div class="log-row"><span class="hint" style="margin:0;">🌦️ Weather: ${e.weather || "— (set a location to auto-fill)"}</span></div>
     <div class="log-row"><span class="hint" style="margin:0;">${moonPhaseLabel(e.date) || ""} (that night)</span></div>
     <div class="log-row">
-      ${on("weight") ? `<input type="number" placeholder="Weight (kg)" value="${e.weight || ""}" onchange="DeerLog.updateDraft('weight',this.value)" style="width:100px;" />` : ""}
-      ${on("tag") ? `<input type="text" placeholder="Tag no." value="${e.tag || ""}" onchange="DeerLog.updateDraft('tag',this.value)" style="width:90px;" />` : ""}
-      ${on("condition") ? `<select onchange="DeerLog.updateDraft('condition',this.value)">
+      ${on("weight") ? Popup.labeled("Weight (kg)", `<input type="number" placeholder="Weight (kg)" value="${e.weight || ""}" onchange="DeerLog.updateDraft('weight',this.value)" />`, "width:100px;") : ""}
+      ${on("tag") ? Popup.labeled("Tag no.", `<input type="text" placeholder="Tag no." value="${e.tag || ""}" onchange="DeerLog.updateDraft('tag',this.value)" />`, "width:90px;") : ""}
+      ${on("condition") ? Popup.labeled("Condition", `<select onchange="DeerLog.updateDraft('condition',this.value)">
         ${DEER_CONDITIONS.map((c) => `<option ${c === e.condition ? "selected" : ""}>${c}</option>`).join("")}
-      </select>` : ""}
+      </select>`) : ""}
     </div>
     ${on("firearm") ? `<div class="log-row">
-      <select onchange="DeerLog.handleFirearmChange(this)">
+      ${Popup.labeled("Firearm", `<select onchange="DeerLog.handleFirearmChange(this)">
         <option value="" ${!e.firearm ? "selected" : ""}>Firearm…</option>
         ${Firearms.list().map((f) => `<option ${f === e.firearm ? "selected" : ""}>${f}</option>`).join("")}
         <option value="__add_new__">+ Add new firearm…</option>
-      </select>
+      </select>`)}
     </div>` : ""}
     <div class="log-row">
-      ${on("abnormalities") ? `<input type="text" placeholder="Abnormalities" value="${e.abnormalities || ""}" onchange="DeerLog.updateDraft('abnormalities',this.value)" />` : ""}
-      ${on("shotPlacement") ? `<input type="text" placeholder="Shot placement" value="${e.shotPlacement || ""}" onchange="DeerLog.updateDraft('shotPlacement',this.value)" />` : ""}
+      ${on("abnormalities") ? Popup.labeled("Abnormalities", `<input type="text" placeholder="Abnormalities" value="${e.abnormalities || ""}" onchange="DeerLog.updateDraft('abnormalities',this.value)" />`) : ""}
+      ${on("shotPlacement") ? Popup.labeled("Shot placement", `<input type="text" placeholder="Shot placement" value="${e.shotPlacement || ""}" onchange="DeerLog.updateDraft('shotPlacement',this.value)" />`) : ""}
     </div>
     <div class="log-row">
-      ${on("shotBy") ? `<input type="text" placeholder="Shot by" value="${e.shotBy || ""}" onchange="DeerLog.updateDraft('shotBy',this.value)" />` : ""}
-      ${on("recordedBy") ? `<input type="text" placeholder="Inspected by" value="${e.recordedBy || ""}" onchange="DeerLog.updateDraft('recordedBy',this.value)" />` : ""}
+      ${on("shotBy") ? Popup.labeled("Shot by", `<input type="text" placeholder="Shot by" value="${e.shotBy || ""}" onchange="DeerLog.updateDraft('shotBy',this.value)" />`) : ""}
+      ${on("recordedBy") ? Popup.labeled("Inspected by", `<input type="text" placeholder="Inspected by" value="${e.recordedBy || ""}" onchange="DeerLog.updateDraft('recordedBy',this.value)" />`) : ""}
     </div>
     <div class="log-row">
-      ${on("destination") ? `<input type="text" placeholder="Destination" value="${e.destination || ""}" onchange="DeerLog.updateDraft('destination',this.value)" />` : ""}
-      ${on("notes") ? `<input type="text" placeholder="Notes" value="${e.notes || ""}" onchange="DeerLog.updateDraft('notes',this.value)" />` : ""}
+      ${on("destination") ? Popup.labeled("Destination", `<input type="text" placeholder="Destination" value="${e.destination || ""}" onchange="DeerLog.updateDraft('destination',this.value)" />`) : ""}
+    </div>
+    <div class="log-row">
+      ${Popup.labeled("Location notes", `<input type="text" placeholder="On-the-ground spot description" value="${e.locationNotes || ""}" onchange="DeerLog.updateDraft('locationNotes',this.value)" />`)}
+    </div>
+    <div class="log-row">
+      ${on("notes") ? Popup.labeled("Notes", `<input type="text" placeholder="Notes" value="${e.notes || ""}" onchange="DeerLog.updateDraft('notes',this.value)" />`) : ""}
     </div>
     ${on("photos") ? `<div class="log-row photo-row">
       ${photoThumbs}

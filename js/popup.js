@@ -63,4 +63,10 @@ const Popup = {
   },
 
   refHeader(title) { return this.header(title); },
+
+  // Shared field-label wrapper — used everywhere a field needs a permanent
+  // visible label above it (not just a placeholder that vanishes on input).
+  labeled(label, innerHtml, style) {
+    return `<label style="${style || "flex:1;"}"><span class="hint" style="display:block; margin:0 0 2px;">${label}</span>${innerHtml}</label>`;
+  },
 };
