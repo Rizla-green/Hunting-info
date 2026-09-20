@@ -24,6 +24,24 @@
 
 const GAME_BIRD_LIST = ["Pheasant", "Mallard", "Wigeon", "French partridge", "English partridge", "Canada goose", "Greylag goose", "Pinkfoot goose", "Egyptian goose", "Snipe", "Woodcock", "Teal"];
 const WINGED_VERMIN_LIST = ["Crow", "Rook", "Jackdaw", "Magpie", "Pigeon", "Jay"];
+// Game Shooting days can hold game birds AND winged vermin in one species list.
+const GAME_DAY_SPECIES_LIST = [...GAME_BIRD_LIST, ...WINGED_VERMIN_LIST];
+
+// Winged Vermin tally source: the real Winged Vermin entries PLUS any winged-vermin species lines on
+// Game Shooting days (filed by the shoot day's own date, calendar year). These are read live from the
+// shoot days — nothing is copied — so editing or deleting a day updates the tally. Used by the
+// Overview tallies and the menu tile only, never by the entry list, farm popups or firearm round counts.
+function wingedTallyEntries() {
+  const real = (window.APP_DATA.species && window.APP_DATA.species.winged) || [];
+  const fromDays = [];
+  (window.APP_DATA.gameShooting || []).forEach((day) => {
+    const lines = (day.species || [])
+      .filter((l) => WINGED_VERMIN_LIST.includes(l.species) && (parseInt(l.hits, 10) || 0) > 0)
+      .map((l) => ({ category: l.species, shots: parseInt(l.hits, 10) || 0 }));
+    if (lines.length) fromDays.push({ date: day.date, lines, fromGameDay: true });
+  });
+  return [...real, ...fromDays];
+}
 const SQUIRREL_LIST = ["Male", "Female"];
 const FOX_LIST = ["Dog", "Vixen", "Dog cub", "Vixen cub"];
 
@@ -341,7 +359,7 @@ const SpeciesLog = {
 
   // ---------- Overview — reference buttons live ONLY here ----------
   renderOverview() {
-    const entries = this.entries();
+    const entries = this.currentSection === "winged" ? wingedTallyEntries() : this.entries();
     const years = seasonYearsFor(entries, this.currentSection);
     if (!years.includes(this.selectedYear)) this.selectedYear = years[0];
     const allTimeTotal = entries.reduce((sum, e) => sum + this.entryTotal(e), 0);

@@ -8,7 +8,11 @@
    jot down a rough species-by-species tally for the day (every game
    species + Teal + an Other line) — this is informal record-keeping
    only and never feeds into any running total elsewhere in the app.
-   Day totals (from the real species lines) are calculated
+   The species list holds game birds AND winged vermin (Crow, Rook, Jackdaw,
+   Magpie, Pigeon, Jay); both count in the Game Shooting totals, and the
+   vermin lines are also read live into Winged Vermin's tallies
+   (wingedTallyEntries in species-log.js). Shots per kill = shots taken /
+   kills. Day totals (from the real species lines) are calculated
    automatically. Two ratios per day, both using the same total-shots-
    vs-total-bag numbers (confirmed). Adding/editing opens a genuine
    POPUP working on a DRAFT — nothing saves until Save is tapped.
@@ -56,7 +60,28 @@ const GameShooting = {
     const shotsTaken = this.dayShotsTaken(day);
     const hits = (day.species || []).reduce((s, l) => s + (parseInt(l.hits, 10) || 0), 0);
     const pct = shotsTaken > 0 ? Math.round((hits / shotsTaken) * 100) : 0;
-    return { shotsTaken, hits, pct };
+    return { shotsTaken, hits, pct, perKill: this.ratioLabel(shotsTaken, hits) };
+  },
+
+  // "9 shots, 3 kills" -> "3 to 1". Blank when there are no shots or no kills.
+  ratioLabel(shots, kills) {
+    if (!(shots > 0) || !(kills > 0)) return "—";
+    const r = shots / kills;
+    const txt = Number.isInteger(r) ? String(r) : (Math.round(r * 10) / 10).toFixed(1);
+    return `${txt} to 1`;
+  },
+
+  // Cartridges and shots-per-kill for a set of days. Cartridges = every day's "Shots taken" added up.
+  // The ratio is total shots / total kills over days that HAVE a shots-taken figure (a blank day would
+  // otherwise make the ratio look better than it is).
+  periodStats(days) {
+    let cartridges = 0, ratioShots = 0, ratioKills = 0;
+    days.forEach((d) => {
+      const t = this.dayTotals(d);
+      cartridges += t.shotsTaken;
+      if (t.shotsTaken > 0) { ratioShots += t.shotsTaken; ratioKills += t.hits; }
+    });
+    return { cartridges, perKill: this.ratioLabel(ratioShots, ratioKills) };
   },
 
   newDayDefaults() {
@@ -185,7 +210,7 @@ const GameShooting = {
 
   categoryTotalsFor(days) {
     const totals = {};
-    GAME_BIRD_LIST.forEach((b) => { totals[b] = 0; });
+    GAME_DAY_SPECIES_LIST.forEach((b) => { totals[b] = 0; });
     days.forEach((day) => {
       (day.species || []).forEach((l) => {
         if (totals[l.species] === undefined) return;
@@ -222,13 +247,23 @@ const GameShooting = {
     const allTimeTotal = days.reduce((s, d) => s + this.dayTotals(d).hits, 0);
     const totals = this.categoryTotalsFor(yearDays);
     const grandTotal = Object.values(totals).reduce((a, b) => a + b, 0);
+    const allStats = this.periodStats(days);
+    const yearStats = this.periodStats(yearDays);
 
     return `
       <div class="species-tabs"><button class="tab-btn" onclick="ReferenceInfo.gameSeasons()">📅 View game seasons</button></div>
-      ${renderStatCards([{ value: allTimeTotal, label: "Overall total (all years)" }])}
+      ${renderStatCards([
+        { value: allTimeTotal, label: "Overall total (all years)" },
+        { value: allStats.cartridges, label: "Cartridges (shots)" },
+        { value: allStats.perKill, label: "Shots per kill" },
+      ])}
       <p class="hint">${seasonHintFor("game")}</p>
       <div class="species-tabs">${renderYearTabs(years, this.selectedYear, "game", "GameShooting.setYear")}</div>
-      ${renderStatCards([{ value: grandTotal, label: "Total — season " + this.selectedYear }])}
+      ${renderStatCards([
+        { value: grandTotal, label: "Total — season " + this.selectedYear },
+        { value: yearStats.cartridges, label: "Cartridges (shots)" },
+        { value: yearStats.perKill, label: "Shots per kill" },
+      ])}
       <div style="margin-top:10px;">${renderCategoryTable(totals, grandTotal)}</div>
       <button class="btn small" style="margin-top:10px;" onclick="GameShooting.openAddPopup()">+ Add day</button>`;
   },
@@ -264,7 +299,7 @@ const GameShooting = {
       .map((line, lineIdx) => `
         <div class="log-row">
           ${Popup.labeled("Species", `<select onchange="GameShooting.updateSpeciesLine(${lineIdx},'species',this.value)">
-            ${GAME_BIRD_LIST.map((b) => `<option ${b === line.species ? "selected" : ""}>${b}</option>`).join("")}
+            ${GAME_DAY_SPECIES_LIST.map((b) => `<option ${b === line.species ? "selected" : ""}>${b}</option>`).join("")}
           </select>`)}
           ${Popup.labeled("Shot", `<input type="number" min="0" placeholder="Shot" value="${line.hits}" onchange="GameShooting.updateSpeciesLine(${lineIdx},'hits',this.value)" style="width:90px;" />`, "flex:none;")}
           <button class="icon-btn" style="align-self:flex-end;" onclick="GameShooting.removeSpeciesLine(${lineIdx})">✕</button>
@@ -275,7 +310,7 @@ const GameShooting = {
       .map((line, lineIdx) => `
         <div class="log-row">
           ${Popup.labeled("Species", `<select onchange="GameShooting.updateDayTotalLine(${lineIdx},'species',this.value)">
-            ${[...GAME_BIRD_LIST, "Other"].map((sp) => `<option ${sp === line.species ? "selected" : ""}>${sp}</option>`).join("")}
+            ${[...GAME_DAY_SPECIES_LIST, "Other"].map((sp) => `<option ${sp === line.species ? "selected" : ""}>${sp}</option>`).join("")}
           </select>`)}
           ${Popup.labeled("Day total", `<input type="number" min="0" value="${line.amount || 0}" onchange="GameShooting.updateDayTotalLine(${lineIdx},'amount',this.value)" style="width:80px;" />`, "flex:none;")}
           <button class="icon-btn" style="align-self:flex-end;" onclick="GameShooting.removeDayTotalLine(${lineIdx})">✕</button>
@@ -317,7 +352,7 @@ const GameShooting = {
     html += `<div class="log-row" style="margin-top:8px;">${Popup.labeled("Shots taken (whole day)", `<input type="number" min="0" placeholder="Shots taken" value="${day.shotsTaken !== undefined && day.shotsTaken !== null && day.shotsTaken !== "" ? day.shotsTaken : (t.shotsTaken || "")}" onchange="GameShooting.updateDraft('shotsTaken',this.value)" />`)}</div>`;
     html += `<div class="log-row" style="margin-top:10px;"><span class="hint" style="margin:0;">Calculated from the table above: ${t.hits} shot / ${t.shotsTaken} shots taken</span></div>`;
     html += `<div class="stat-cards" style="margin-top:6px;">
-      <div class="stat-card"><div class="num">${t.pct}%</div><div class="lbl">Your shots-to-hits ratio</div></div>
+      <div class="stat-card"><div class="num">${t.perKill}</div><div class="lbl">Shots per kill</div></div>
       <div class="stat-card"><div class="num">${t.pct}%</div><div class="lbl">Whole day ratio</div></div>
     </div>`;
 

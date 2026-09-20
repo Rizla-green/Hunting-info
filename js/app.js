@@ -25,6 +25,10 @@ function tileStatFor(key) {
     const total = (window.APP_DATA.species?.deer || []).length;
     return `${total} shot (all time)`;
   }
+  if (key === "winged") {
+    const total = wingedTallyEntries().reduce((s, e) => s + (e.lines || []).reduce((s2, l) => s2 + (parseInt(l.shots, 10) || 0), 0), 0);
+    return `${total} shot (all time)`;
+  }
   if (SPECIES_SECTIONS[key]) {
     const entries = window.APP_DATA.species?.[key] || [];
     const total = entries.reduce((s, e) => s + (parseInt(e.shots, 10) || 1), 0);
