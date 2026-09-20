@@ -1,6 +1,8 @@
 /* =====================================================================
    SHOT SUMMARY — the "everything shot" card on the main menu (under the
-   logo, above the tiles) and the all-time species list it opens.
+   logo, above the tiles: ONE box holding both figures) and the all-time
+   species list it opens as a POPUP (shared Popup system): one plain list
+   of species and number shot — no section headings, totals or notes.
 
    Counts every animal/bird ever logged in Deer, Fox, Rabbit, Rats,
    Squirrels, Winged Vermin, Game Shooting, Goats and Boar, ALL TIME.
@@ -103,38 +105,26 @@ const ShotSummary = {
     el.innerHTML = `
       <div class="shot-summary" onclick="ShotSummary.open()">
         <div class="stat-cards">
-          <div class="stat-card"><div class="num">${t.animals}</div><div class="lbl">Total shot (all species)</div></div>
-          <div class="stat-card"><div class="num">${t.shots}</div><div class="lbl">Total shots fired</div></div>
+          <div class="stat-card">
+            <div class="num">${t.animals} <span style="font-size:12px;">shot</span> &middot; ${t.shots} <span style="font-size:12px;">shots fired</span></div>
+            <div class="lbl">All species, all time &mdash; tap for the list</div>
+          </div>
         </div>
-        <div class="hint" style="text-align:center; margin:4px 0 0;">Tap for every species</div>
       </div>`;
   },
 
   open() {
     const t = this.compute();
-    const groupHtml = t.groups.map((g) => `
-      <div class="section-title" style="margin-top:14px;"><h4>${escapeHtml(g.title)} — ${g.animals} shot · ${g.shots} shots</h4></div>
-      <p class="hint" style="margin:0 0 4px;">${escapeHtml(g.basis)}</p>
-      <div class="table-scroll"><table class="data-table">
-        <tr><th>Species</th><th>Shot</th></tr>
-        ${g.rows.map((r) => `<tr><td>${escapeHtml(r.name)}</td><td><strong>${r.count}</strong></td></tr>`).join("")}
-      </table></div>`).join("");
-    const overlay = document.getElementById("modalOverlay");
-    overlay.innerHTML = `
-      <div class="modal-box species-modal-box">
-        <div class="map-modal-header">
-          <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">← Back</button>
-          <h3>Everything shot</h3>
-          <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">Main Menu</button>
-        </div>
-        <div class="stat-cards">
-          <div class="stat-card"><div class="num">${t.animals}</div><div class="lbl">Total shot (all time)</div></div>
-          <div class="stat-card"><div class="num">${t.shots}</div><div class="lbl">Total shots fired</div></div>
-        </div>
-        <p class="hint">All time. Clay Shooting and Zeroing are not counted. Each animal is counted once. Shots are real cartridge figures where the app records them (Game Shooting, Winged Vermin) and 1 per animal elsewhere, so the total is a minimum.</p>
-        ${groupHtml}
-      </div>`;
-    overlay.classList.remove("hidden");
+    const rows = t.groups.flatMap((g) => g.rows)
+      .map((r) => `<tr><td>${escapeHtml(r.name)}</td><td><strong>${r.count}</strong></td></tr>`).join("");
+    Popup.open(`
+      ${Popup.header("Everything shot")}
+      <div style="padding:0 16px 16px;">
+        <div class="table-scroll"><table class="data-table">
+          <tr><th>Species</th><th>Shot</th></tr>
+          ${rows}
+        </table></div>
+      </div>`);
   },
 
   // Keeps the card current when a section is closed and the menu shows again.
