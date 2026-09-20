@@ -57,7 +57,7 @@ const Zeroing = {
     Popup.open(this.renderPopupBody(), () => this.render());
   },
   openEditPopup(idx) {
-    this.draft = { ...this.sessions()[idx] };
+    this.draft = { ...this.sessions()[idx], photos: [...(this.sessions()[idx].photos || [])] };   // own copy of the photo list, so removing a photo isn't final until Save
     this.draftIdx = idx;
     Popup.open(this.renderPopupBody(), () => this.render());
   },
@@ -141,21 +141,22 @@ const Zeroing = {
       Popup.setBody(this.renderPopupBody());
     });
   },
-  addPhoto(inputEl) {
-    const file = inputEl.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
+  async addPhoto(inputEl) {
+    const files = Array.from(inputEl.files || []);
+    inputEl.value = "";   // so the same photo can be picked again
+    for (const file of files) {
+      const dataUrl = await PhotoTools.fileToDataUrl(file);
+      if (!this.draft) return;   // the popup was closed while the photo was being prepared
       this.draft.photos = this.draft.photos || [];
-      this.draft.photos.push(reader.result);
+      this.draft.photos.push(dataUrl);
       const photoIdx = this.draft.photos.length - 1;
       Popup.markDirty();
       Popup.setBody(this.renderPopupBody());
       uploadAndReplace(this.draft.photos, photoIdx);
-    };
-    reader.readAsDataURL(file);
+    }
   },
   removePhoto(photoIdx) {
+    if (!confirm("Delete this picture? This can't be undone.")) return;
     this.draft.photos.splice(photoIdx, 1);
     Popup.markDirty();
     Popup.setBody(this.renderPopupBody());
@@ -243,8 +244,11 @@ const Zeroing = {
     <div class="log-row">${Popup.labeled("Location notes", `<input type="text" placeholder="On-the-ground spot description" value="${s.locationNotes || ""}" onchange="Zeroing.updateDraft('locationNotes',this.value)" />`)}</div>
     <div class="log-row photo-row">
       ${photoThumbs}
-      <label class="btn small ghost" style="cursor:pointer;">+ Photo
+      <label class="btn small ghost" style="cursor:pointer;">📷 Take photo
         <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="Zeroing.addPhoto(this)" />
+      </label>
+      <label class="btn small ghost" style="cursor:pointer;">🖼 From photos
+        <input type="file" accept="image/*" multiple style="display:none;" onchange="Zeroing.addPhoto(this)" />
       </label>
     </div>
     ${Popup.removeFooter("Zeroing.removeDraft()", "Remove session")}

@@ -59,7 +59,7 @@ const ClayShooting = {
     Popup.open(this.renderPopupBody(), () => this.renderBody());
   },
   openEditPopup(idx) {
-    this.draft = { ...this.entries()[idx] };
+    this.draft = { ...this.entries()[idx], photos: [...(this.entries()[idx].photos || [])] };   // own copy of the photo list, so removing a photo isn't final until Save
     this.draftIdx = idx;
     Popup.open(this.renderPopupBody(), () => this.renderBody());
   },
@@ -118,21 +118,22 @@ const ClayShooting = {
       Popup.setBody(this.renderPopupBody());
     });
   },
-  addPhoto(inputEl) {
-    const file = inputEl.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
+  async addPhoto(inputEl) {
+    const files = Array.from(inputEl.files || []);
+    inputEl.value = "";   // so the same photo can be picked again
+    for (const file of files) {
+      const dataUrl = await PhotoTools.fileToDataUrl(file);
+      if (!this.draft) return;   // the popup was closed while the photo was being prepared
       this.draft.photos = this.draft.photos || [];
-      this.draft.photos.push(reader.result);
+      this.draft.photos.push(dataUrl);
       const photoIdx = this.draft.photos.length - 1;
       Popup.markDirty();
       Popup.setBody(this.renderPopupBody());
       uploadAndReplace(this.draft.photos, photoIdx);
-    };
-    reader.readAsDataURL(file);
+    }
   },
   removePhoto(photoIdx) {
+    if (!confirm("Delete this picture? This can't be undone.")) return;
     this.draft.photos.splice(photoIdx, 1);
     Popup.markDirty();
     Popup.setBody(this.renderPopupBody());
@@ -252,8 +253,11 @@ const ClayShooting = {
     <div class="log-row">${Popup.labeled("Notes", `<input type="text" placeholder="Notes" value="${e.notes || ""}" onchange="ClayShooting.updateDraft('notes',this.value)" />`)}</div>
     <div class="log-row photo-row">
       ${photoThumbs}
-      <label class="btn small ghost" style="cursor:pointer;">+ Photo
+      <label class="btn small ghost" style="cursor:pointer;">📷 Take photo
         <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="ClayShooting.addPhoto(this)" />
+      </label>
+      <label class="btn small ghost" style="cursor:pointer;">🖼 From photos
+        <input type="file" accept="image/*" multiple style="display:none;" onchange="ClayShooting.addPhoto(this)" />
       </label>
     </div>
     ${Popup.removeFooter("ClayShooting.removeDraft()", "Remove entry")}

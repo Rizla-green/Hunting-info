@@ -907,3 +907,10 @@ table.data-table td {
 
 /* ---------- Main menu 'everything shot' card ---------- */
 .shot-summary { max-width: 520px; margin: 0 auto; padding: 4px 16px 0; cursor: pointer; }
+
+/* ---------- v4.17.14: buttons inside the save-warning bar ---------- */
+.save-warning-actions { margin-top: 8px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.save-warning-actions button {
+  background: #f4f1e8; color: #8b1e1e; border: 0; border-radius: 8px;
+  padding: 7px 12px; font-size: 13px; font-weight: 600; cursor: pointer;
+}

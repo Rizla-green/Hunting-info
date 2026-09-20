@@ -365,6 +365,7 @@ function watchAuthState() {
       await loadAppData();
       window.__dataLoaded = true;
       renderMenu();
+      retryPendingPhotoUploads();   // any photo that never finished uploading last time
       maybeRunWeeklyBackup();
     } else {
       window.APP_DATA.currentUser = null;

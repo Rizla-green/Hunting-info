@@ -56,7 +56,7 @@ const DeerLog = {
     Popup.open(this.renderPopupBody(), () => { if (this.currentFarmId) this.renderFarmWorkspace(); else this.renderSpeciesWide(); });
   },
   openEditPopup(idx) {
-    this.draft = { ...this.entries()[idx] };
+    this.draft = { ...this.entries()[idx], photos: [...(this.entries()[idx].photos || [])] };   // own copy of the photo list, so removing a photo isn't final until Save
     this.draftIdx = idx;
     Popup.open(this.renderPopupBody(), () => { if (this.currentFarmId) this.renderFarmWorkspace(); else this.renderSpeciesWide(); });
   },
@@ -140,6 +140,21 @@ const DeerLog = {
     this.render();
   },
 
+  // Photos chosen from the phone's library: a new entry with the photos and NO location (see SpeciesLog).
+  async addEntryFromLibrary(inputEl) {
+    const files = Array.from(inputEl.files || []);
+    inputEl.value = "";
+    if (!files.length) return;
+    const entry = this.newEntryDefaults();
+    entry.photos = [];
+    for (const file of files) entry.photos.push(await PhotoTools.fileToDataUrl(file));
+    this.entries().push(entry);
+    const idx = this.entries().length - 1;
+    persistData();
+    entry.photos.forEach((_, i) => uploadAndReplace(entry.photos, i));
+    this.openEditPopup(idx);
+  },
+
   addEntryFromCamera(inputEl) {
     LocationMatch.captureWithCamera(inputEl, (photoDataUrl, loc) => {
       const entry = this.newEntryDefaults();
@@ -204,21 +219,22 @@ const DeerLog = {
     }
     this.updateDraft("firearm", selectEl.value);
   },
-  addPhoto(inputEl) {
-    const file = inputEl.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
+  async addPhoto(inputEl) {
+    const files = Array.from(inputEl.files || []);
+    inputEl.value = "";   // so the same photo can be picked again
+    for (const file of files) {
+      const dataUrl = await PhotoTools.fileToDataUrl(file);
+      if (!this.draft) return;   // the popup was closed while the photo was being prepared
       this.draft.photos = this.draft.photos || [];
-      this.draft.photos.push(reader.result);
+      this.draft.photos.push(dataUrl);
       const photoIdx = this.draft.photos.length - 1;
       Popup.markDirty();
       Popup.setBody(this.renderPopupBody());
       uploadAndReplace(this.draft.photos, photoIdx);
-    };
-    reader.readAsDataURL(file);
+    }
   },
   removePhoto(photoIdx) {
+    if (!confirm("Delete this picture? This can't be undone.")) return;
     this.draft.photos.splice(photoIdx, 1);
     Popup.markDirty();
     Popup.setBody(this.renderPopupBody());
@@ -747,6 +763,10 @@ const DeerLog = {
         📷 Add via camera
         <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="DeerLog.addEntryFromCamera(this)" />
       </label>
+      <label class="btn small ghost" style="display:inline-block; margin-left:8px; cursor:pointer;">
+        🖼 Add from photos (no location)
+        <input type="file" accept="image/*" multiple style="display:none;" onchange="DeerLog.addEntryFromLibrary(this)" />
+      </label>
       <p class="hint">Every entry is checked against the close season for this property's country automatically.</p>
       ${listHeaderHtml("Entries", this.scopedEntries().length, "DeerLog.openFieldSettings()", "Choose which boxes show in the entry popup")}
       <div class="species-tabs">
@@ -880,8 +900,11 @@ const DeerLog = {
     </div>
     ${on("photos") ? `<div class="log-row photo-row">
       ${photoThumbs}
-      <label class="btn small ghost" style="cursor:pointer;">+ Photo
+      <label class="btn small ghost" style="cursor:pointer;">📷 Take photo
         <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="DeerLog.addPhoto(this)" />
+      </label>
+      <label class="btn small ghost" style="cursor:pointer;">🖼 From photos
+        <input type="file" accept="image/*" multiple style="display:none;" onchange="DeerLog.addPhoto(this)" />
       </label>
     </div>` : ""}
     ${Popup.removeFooter("DeerLog.removeDraft()", "Remove entry")}

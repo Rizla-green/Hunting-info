@@ -30,38 +30,62 @@ async function uploadPhotoToCloudinary(dataUrl) {
   }
 }
 
+const _photoUploadsInFlight = new Set();
+function _isLocalPhoto(v) { return typeof v === "string" && v.startsWith("data:"); }
+
 // Uploads a single photo and, if successful, swaps the local data-URL
 // for the hosted URL in place, then saves. Called right after capture,
 // and again by retryPendingPhotoUploads() for anything still pending.
+// The swap is found BY VALUE, not by position, so removing another photo
+// while this one uploads can't make it replace the wrong picture, and a
+// photo deleted meanwhile is simply dropped.
 async function uploadAndReplace(photosArray, index) {
   const current = photosArray[index];
-  if (!current || !current.startsWith("data:")) return; // already uploaded, or empty
-  const url = await uploadPhotoToCloudinary(current);
-  if (url) {
-    photosArray[index] = url;
+  if (!_isLocalPhoto(current) || _photoUploadsInFlight.has(current)) return;
+  _photoUploadsInFlight.add(current);
+  try {
+    const url = await uploadPhotoToCloudinary(current);
+    if (!url) return;
+    const i = photosArray.indexOf(current);
+    if (i < 0) return;   // removed while uploading
+    photosArray[i] = url;
     persistData();
+  } finally {
+    _photoUploadsInFlight.delete(current);
   }
 }
 
-// Scans every photo across the app for ones still stuck as local
-// data-URLs (meaning their upload never completed) and retries them.
-// Runs automatically when the device comes back online.
+// Scans every photo across the app (species, Deer, Clay, Zeroing — anything held in a
+// "photos" list or a "photo" field) for ones still stuck as local data-URLs (meaning
+// their upload never completed) and retries them. Runs after login and when the device
+// comes back online.
 async function retryPendingPhotoUploads() {
-  const species = window.APP_DATA.species || {};
-  for (const key of Object.keys(species)) {
-    for (const entry of species[key]) {
-      if (Array.isArray(entry.photos)) {
-        for (let i = 0; i < entry.photos.length; i++) await uploadAndReplace(entry.photos, i);
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return;
+  const slots = [];
+  (function walk(node, depth) {
+    if (!node || typeof node !== "object" || depth > 10) return;
+    if (Array.isArray(node)) { node.forEach((v) => walk(v, depth + 1)); return; }
+    Object.keys(node).forEach((k) => {
+      const v = node[k];
+      if (k === "photos" && Array.isArray(v)) {
+        v.forEach((p, i) => { if (_isLocalPhoto(p)) slots.push({ arr: v, i }); });
+      } else if (k === "photo" && _isLocalPhoto(v)) {
+        slots.push({ obj: node, k });
+      } else if (v && typeof v === "object" && k !== "currentUser") {
+        walk(v, depth + 1);
       }
-    }
-  }
-  const zeroing = window.APP_DATA.zeroing || {};
-  for (const caliber of Object.keys(zeroing)) {
-    for (const session of zeroing[caliber]) {
-      if (session.photo && session.photo.startsWith("data:")) {
-        const url = await uploadPhotoToCloudinary(session.photo);
-        if (url) { session.photo = url; persistData(); }
-      }
+    });
+  })(window.APP_DATA, 0);
+  for (const slot of slots) {
+    if (slot.arr) { await uploadAndReplace(slot.arr, slot.i); continue; }
+    const current = slot.obj[slot.k];
+    if (!_isLocalPhoto(current) || _photoUploadsInFlight.has(current)) continue;
+    _photoUploadsInFlight.add(current);
+    try {
+      const url = await uploadPhotoToCloudinary(current);
+      if (url && slot.obj[slot.k] === current) { slot.obj[slot.k] = url; persistData(); }
+    } finally {
+      _photoUploadsInFlight.delete(current);
     }
   }
 }
@@ -75,6 +99,7 @@ window.addEventListener("online", () => {
 // to the original URL untouched for anything not yet uploaded (a local
 // data-URL) or not a Cloudinary URL at all.
 function cloudinaryThumb(url, width) {
+  if (url && url.startsWith("pending:")) return PhotoTools.PENDING_SVG;   // still uploading from another device
   if (!url || !url.includes("/upload/")) return url;
   return url.replace("/upload/", `/upload/w_${width},c_limit,q_auto/`);
 }

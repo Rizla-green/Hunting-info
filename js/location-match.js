@@ -109,11 +109,9 @@ const LocationMatch = {
   captureWithCamera(inputEl, onComplete) {
     const file = inputEl.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const photoDataUrl = reader.result;
-      this.captureLocation((loc) => onComplete(photoDataUrl, loc));
-    };
-    reader.readAsDataURL(file);
+    inputEl.value = "";   // so the same photo can be picked again later
+    // GPS runs while the photo is being shrunk (phone photos are big), so the position is where you took it.
+    const locPromise = new Promise((resolve) => this.captureLocation(resolve));
+    Promise.all([PhotoTools.fileToDataUrl(file), locPromise]).then(([photoDataUrl, loc]) => onComplete(photoDataUrl, loc));
   },
 };

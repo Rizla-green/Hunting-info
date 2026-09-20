@@ -173,7 +173,7 @@ const SpeciesLog = {
     Popup.open(this.renderPopupBody(), () => this.renderBody());
   },
   openEditPopup(idx) {
-    this.draft = { ...this.entries()[idx] };
+    this.draft = { ...this.entries()[idx], photos: [...(this.entries()[idx].photos || [])] };   // own copy of the photo list, so removing a photo isn't final until Save
     this.draftIdx = idx;
     Popup.open(this.renderPopupBody(), () => this.renderBody());
   },
@@ -285,21 +285,22 @@ const SpeciesLog = {
     });
   },
 
-  addPhoto(inputEl) {
-    const file = inputEl.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
+  async addPhoto(inputEl) {
+    const files = Array.from(inputEl.files || []);
+    inputEl.value = "";   // so the same photo can be picked again
+    for (const file of files) {
+      const dataUrl = await PhotoTools.fileToDataUrl(file);
+      if (!this.draft) return;   // the popup was closed while the photo was being prepared
       this.draft.photos = this.draft.photos || [];
-      this.draft.photos.push(reader.result);
+      this.draft.photos.push(dataUrl);
       const photoIdx = this.draft.photos.length - 1;
       Popup.markDirty();
       Popup.setBody(this.renderPopupBody());
       uploadAndReplace(this.draft.photos, photoIdx);
-    };
-    reader.readAsDataURL(file);
+    }
   },
   removePhoto(photoIdx) {
+    if (!confirm("Delete this picture? This can't be undone.")) return;
     this.draft.photos.splice(photoIdx, 1);
     Popup.markDirty();
     Popup.setBody(this.renderPopupBody());
@@ -421,6 +422,10 @@ const SpeciesLog = {
       <label class="btn small ghost" style="display:block; text-align:center; margin-top:8px; cursor:pointer;">
         📷 Add via camera
         <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="SpeciesLog.addEntryFromCamera(this)" />
+      </label>
+      <label class="btn small ghost" style="display:block; text-align:center; margin-top:8px; cursor:pointer;">
+        🖼 Add from photos (no location)
+        <input type="file" accept="image/*" multiple style="display:none;" onchange="SpeciesLog.addEntryFromLibrary(this)" />
       </label>` : ""}
       ${listYearTabsHtml(entries, this.currentSection, this.selectedYear, "SpeciesLog.setYear")}
       ${listHeaderHtml("Entries", shown.length, "SpeciesLog.openColumnSettings()")}
@@ -449,6 +454,22 @@ const SpeciesLog = {
       <div class="table-scroll" style="margin-top:10px;"><table class="data-table"><tr><th>Season year</th><th>Total</th><th></th></tr>${rows}</table></div>
       ${W3W_SPECIES.includes(this.currentSection) ? `<button class="btn secondary small" style="width:100%; margin-top:14px;" onclick="ShotLocationMap.open('${this.currentSection}','${farmId}')">📍 Total kills map — all seasons</button>` : ""}
       ${FIELD_SECTIONS.includes(this.currentSection) && farmId !== "other" ? Fields.byFieldBlockHtml(farmId, entries, this.currentSection, (e) => this.entryTotal(e)) : ""}`);
+  },
+
+  // Photos chosen from the phone's library: a new entry with the photos and NO location — a library photo
+  // was taken earlier, possibly elsewhere, so the phone's current position would be wrong. Add the
+  // position afterwards (📍 Auto or the Coordinates box) if wanted.
+  async addEntryFromLibrary(inputEl) {
+    const files = Array.from(inputEl.files || []);
+    inputEl.value = "";
+    if (!files.length) return;
+    const entry = this.newEntryDefaults();
+    entry.photos = [];
+    for (const file of files) entry.photos.push(await PhotoTools.fileToDataUrl(file));
+    this.entries().push(entry);
+    persistData();
+    entry.photos.forEach((_, i) => uploadAndReplace(entry.photos, i));
+    this.renderBody();
   },
 
   addEntryFromCamera(inputEl) {
@@ -662,8 +683,11 @@ const SpeciesLog = {
     html += `<div class="log-row"><label style="flex:1;"><span class="hint" style="display:block; margin:0 0 2px;">Notes</span><input type="text" placeholder="Notes" value="${e.notes || ""}" onchange="SpeciesLog.updateDraft('notes',this.value)" /></label></div>`;
     html += `<div class="log-row photo-row">
       ${photoThumbs}
-      <label class="btn small ghost" style="cursor:pointer;">+ Photo
+      <label class="btn small ghost" style="cursor:pointer;">📷 Take photo
         <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="SpeciesLog.addPhoto(this)" />
+      </label>
+      <label class="btn small ghost" style="cursor:pointer;">🖼 From photos
+        <input type="file" accept="image/*" multiple style="display:none;" onchange="SpeciesLog.addPhoto(this)" />
       </label>
     </div>`;
     html += `${Popup.removeFooter("SpeciesLog.removeDraft()", "Remove entry")}`;
