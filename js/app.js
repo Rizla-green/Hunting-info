@@ -54,6 +54,7 @@ function tileStatFor(key) {
 
 // ---------- Render menu ----------
 function renderMenu() {
+  if (typeof ShotSummary !== "undefined") ShotSummary.renderCard();   // "everything shot" card above the tiles
   const grid = document.getElementById("menuGrid");
   grid.innerHTML = "";
 
@@ -389,6 +390,7 @@ function registerServiceWorker() {
 // ---------- Init ----------
 document.addEventListener("DOMContentLoaded", () => {
   renderMenu();
+  ShotSummary.init();
   renderVersion();
   registerServiceWorker();
   initFirebase();
