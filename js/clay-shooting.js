@@ -223,35 +223,30 @@ const ClayShooting = {
       .join("");
     const pct = (parseInt(e.clays, 10) || 0) > 0 ? Math.round(((parseInt(e.hits, 10) || 0) / parseInt(e.clays, 10)) * 100) : 0;
 
-    let html = Popup.header("Clay Shooting Entry");
-    html += `<div style="padding:0 16px 16px;">`;
-    html += `<div class="log-row">
+    const row = (inner) => `<div class="log-row">${inner}</div>`;
+    const B = {};
+    B.dateGround = row(`
       ${Popup.labeled("Date", `${DateInput.html(e.date, "ClayShooting.updateDraft('date', v)")}`)}
       ${Popup.labeled("Ground", `<select onchange="ClayShooting.handleLocationChange(this)">
         <option value="" ${!e.location ? "selected" : ""}>Ground…</option>
         ${grounds.map((g) => `<option ${g === e.location ? "selected" : ""}>${g}</option>`).join("")}
         <option value="__add_new__">+ Add new ground…</option>
-      </select>`)}
-    </div>
-    <div class="log-row">
-      ${Popup.labeled("Clays", `<input type="number" min="0" placeholder="Clays" value="${e.clays}" onchange="ClayShooting.updateDraft('clays',this.value)" />`)}
-      ${Popup.labeled("Hits", `<input type="number" min="0" placeholder="Hits" value="${e.hits}" onchange="ClayShooting.updateDraft('hits',this.value)" />`)}
-    </div>
-    <div class="log-row"><span class="hint" style="margin:0;">${pct}% hit</span></div>
-    <div class="log-row">
-      ${Popup.labeled("what3words", `<input type="text" placeholder="///what3words" value="${e.what3words || ""}" onchange="ClayShooting.updateDraft('what3words',this.value)" />`)}
-      <div class="row-below"><button class="btn small ghost" onclick="ClayShooting.captureW3w()">📍 Auto</button></div>
-    </div>
-    <div class="log-row">
-      ${Popup.labeled("Firearm", `<select onchange="ClayShooting.handleFirearmChange(this)">
+      </select>`)}`);
+    B.firearm = row(Popup.labeled("Firearm", `<select onchange="ClayShooting.handleFirearmChange(this)">
         <option value="" ${!e.firearm ? "selected" : ""}>Firearm…</option>
         ${Firearms.list().map((f) => `<option ${f === e.firearm ? "selected" : ""}>${f}</option>`).join("")}
         <option value="__add_new__">+ Add new firearm…</option>
-      </select>`)}
-    </div>
-    <div class="log-row">${Popup.labeled("Location notes", `<input type="text" placeholder="On-the-ground spot description" value="${e.locationNotes || ""}" onchange="ClayShooting.updateDraft('locationNotes',this.value)" />`)}</div>
-    <div class="log-row">${Popup.labeled("Notes", `<input type="text" placeholder="Notes" value="${e.notes || ""}" onchange="ClayShooting.updateDraft('notes',this.value)" />`)}</div>
-    <div class="log-row photo-row">
+      </select>`));
+    B.locNotes = row(Popup.labeled("Location notes", `<input type="text" placeholder="On-the-ground spot description" value="${e.locationNotes || ""}" onchange="ClayShooting.updateDraft('locationNotes',this.value)" />`));
+    B.claysHits = `${row(`
+      ${Popup.labeled("Clays", `<input type="number" min="0" placeholder="Clays" value="${e.clays}" onchange="ClayShooting.updateDraft('clays',this.value)" />`)}
+      ${Popup.labeled("Hits", `<input type="number" min="0" placeholder="Hits" value="${e.hits}" onchange="ClayShooting.updateDraft('hits',this.value)" />`)}`)}
+    ${row(`<span class="hint" style="margin:0;">${pct}% hit</span>`)}`;
+    B.w3w = row(`
+      ${Popup.labeled("what3words", `<input type="text" placeholder="///what3words" value="${e.what3words || ""}" onchange="ClayShooting.updateDraft('what3words',this.value)" />`)}
+      <div class="row-below"><button class="btn small ghost" onclick="ClayShooting.captureW3w()">📍 Auto</button></div>`);
+    B.notes = row(Popup.labeled("Notes", `<input type="text" placeholder="Notes" value="${e.notes || ""}" onchange="ClayShooting.updateDraft('notes',this.value)" />`));
+    B.photos = `<div class="log-row photo-row">
       ${photoThumbs}
       <label class="btn small ghost" style="cursor:pointer;">📷 Take photo
         <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="ClayShooting.addPhoto(this)" />
@@ -259,8 +254,15 @@ const ClayShooting = {
       <label class="btn small ghost" style="cursor:pointer;">🖼 From photos
         <input type="file" accept="image/*" multiple style="display:none;" onchange="ClayShooting.addPhoto(this)" />
       </label>
-    </div>
-    ${Popup.removeFooter("ClayShooting.removeDraft()", "Remove entry")}
+    </div>`;
+
+    // ---- The Clay Shooting form, top to bottom (as laid out by Ben) ----
+    const ORDER = ["dateGround", "firearm", "locNotes", "claysHits", "w3w", "notes", "photos"];
+
+    let html = Popup.header("Clay Shooting Entry");
+    html += `<div style="padding:0 16px 16px;">`;
+    ORDER.forEach((k) => { html += B[k] || ""; });
+    html += `${Popup.removeFooter("ClayShooting.removeDraft()", "Remove entry")}
     ${Popup.saveFooter("ClayShooting.saveDraft()")}
     </div>`;
     return html;

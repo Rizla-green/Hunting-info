@@ -129,8 +129,15 @@ function openSection(key) {
 // TODO: replace window.APP_DATA.farms with the real Firestore-backed list.
 window.APP_DATA = window.APP_DATA || { farms: [{ id: "demo-farm", name: "Demo Farm" }] };
 
-function openLandAndFarms() {
+// Reorder mode: lets you put your properties in the order you use them most. The order is the order of
+// window.APP_DATA.farms, which every property list and drop-down in the app reads, so it applies everywhere.
+let landReorderMode = false;
+
+function openLandAndFarms(keepMode) {
+  if (!keepMode) landReorderMode = false;
   const overlay = document.getElementById("modalOverlay");
+  const box = overlay.querySelector(".modal-box");
+  const scrollTop = keepMode && box ? box.scrollTop : 0;
   const farms = window.APP_DATA.farms;
   overlay.innerHTML = `
     <div class="modal-box">
@@ -139,17 +146,47 @@ function openLandAndFarms() {
         <h3>Land and Farms</h3>
         <button class="icon-btn" onclick="document.getElementById('modalOverlay').classList.add('hidden')">Main Menu</button>
       </div>
-      <input type="text" id="farmSearchInput" placeholder="Search farms…" oninput="filterFarmList(this.value)" style="width:100%; box-sizing:border-box; padding:8px 10px; border-radius:8px; border:1px solid var(--gold-dim); background:var(--navy); color:var(--cream); margin-bottom:10px;" />
-      <button class="btn-gold-block" style="margin-bottom:10px;" onclick="addFarm()">+ Add farm</button>
-      <button class="btn-gold-block" style="margin-bottom:10px;" onclick="AllPropertiesMap.open()">All properties map</button>
+      ${landReorderMode ? "" : `<input type="text" id="farmSearchInput" placeholder="Search farms…" oninput="filterFarmList(this.value)" style="width:100%; box-sizing:border-box; padding:8px 10px; border-radius:8px; border:1px solid var(--gold-dim); background:var(--navy); color:var(--cream); margin-bottom:10px;" />`}
+      ${landReorderMode ? "" : `<button class="btn-gold-block" style="margin-bottom:10px;" onclick="addFarm()">+ Add farm</button>
+      <button class="btn-gold-block" style="margin-bottom:10px;" onclick="AllPropertiesMap.open()">All properties map</button>`}
+      <button class="btn-gold-block" style="margin-bottom:10px;" onclick="toggleFarmReorder()">${landReorderMode ? "✓ Done reordering" : "↕ Reorder properties"}</button>
+      ${landReorderMode ? `<p class="hint" style="margin:0 0 8px;">Tap ▲ or ▼ to move a property, or Top to send it to the top. This is the order used everywhere in the app.</p>` : ""}
       <div class="farm-list" id="farmListItems">
-        ${farms.map((f) => {
+        ${farms.map((f, i) => {
+          if (landReorderMode) {
+            const row = renderLocationRow(f, "void", "");
+            return row.replace('</div>', `<span class="reorder-btns">
+              <button class="btn ghost small" ${i === 0 ? "disabled" : ""} onclick="event.stopPropagation(); moveFarm('${f.id}','top')">Top</button>
+              <button class="btn ghost small" ${i === 0 ? "disabled" : ""} onclick="event.stopPropagation(); moveFarm('${f.id}','up')">▲</button>
+              <button class="btn ghost small" ${i === farms.length - 1 ? "disabled" : ""} onclick="event.stopPropagation(); moveFarm('${f.id}','down')">▼</button></span></div>`);
+          }
           const row = renderLocationRow(f, "FarmProfile.open", `data-name="${f.name.toLowerCase()}"`);
           return row.replace('</div>', `<button class="btn ghost small" onclick="event.stopPropagation(); openSharingModal('${f.id}')">Shared with</button></div>`);
         }).join("")}
       </div>
     </div>`;
   overlay.classList.remove("hidden");
+  const newBox = overlay.querySelector(".modal-box");
+  if (newBox && scrollTop) newBox.scrollTop = scrollTop;
+}
+
+function toggleFarmReorder() {
+  landReorderMode = !landReorderMode;
+  openLandAndFarms(true);
+}
+
+// Moves one property up/down a place, or to the top, and saves. Entries are linked to a property by its id,
+// so nothing attached to it changes — only where it sits in the lists.
+function moveFarm(farmId, action) {
+  const farms = window.APP_DATA.farms;
+  const i = farms.findIndex((f) => f.id === farmId);
+  if (i < 0) return;
+  if (action === "top" && i > 0) farms.unshift(farms.splice(i, 1)[0]);
+  else if (action === "up" && i > 0) [farms[i - 1], farms[i]] = [farms[i], farms[i - 1]];
+  else if (action === "down" && i < farms.length - 1) [farms[i + 1], farms[i]] = [farms[i], farms[i + 1]];
+  else return;
+  persistData();
+  openLandAndFarms(true);
 }
 
 function filterFarmList(query) {

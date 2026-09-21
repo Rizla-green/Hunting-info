@@ -528,6 +528,7 @@ const SpeciesLog = {
     const e = this.draft;
     const isFlat = FLAT_SECTIONS.includes(this.currentSection);
     const isWinged = this.currentSection === "winged";
+    const isRich = RICH_SECTIONS.includes(this.currentSection);
     const def = SPECIES_SECTIONS[this.currentSection];
     const farms = window.APP_DATA.farms || [];
     const w3wEnabled = isFlat || W3W_SPECIES.includes(this.currentSection);
@@ -535,153 +536,52 @@ const SpeciesLog = {
     const photoThumbs = photos
       .map((p, pIdx) => `<span class="photo-thumb-wrap"><img src="${cloudinaryThumb(p, 60)}" class="zeroing-thumb" /><button class="icon-btn photo-remove" onclick="SpeciesLog.removePhoto(${pIdx})">✕</button></span>`)
       .join("");
+    const hint = (t) => `<span class="hint" style="display:block; margin:0 0 2px;">${t}</span>`;
+    const textRow = (label, key, ph) => `<div class="log-row"><label style="flex:1;">${hint(label)}<input type="text" placeholder="${ph || label}" value="${e[key] || ""}" onchange="SpeciesLog.updateDraft('${key}',this.value)" /></label></div>`;
 
-    const isRich = RICH_SECTIONS.includes(this.currentSection);
-    let html = Popup.header(`${def.title} Entry`);
-    html += `<div style="padding:0 16px 16px;">`;
-    html += `<div class="log-row">
-      <label style="flex:1;"><span class="hint" style="display:block; margin:0 0 2px;">Date</span>
+    // ---- Every box on the form is built here as its own block; the order each form shows them in is set in ORDER below. ----
+    const B = {};
+    B.weather = `<div class="log-row"><span class="hint" style="margin:0;">🌦️ Weather: ${e.weather || "— (set a location to auto-fill)"}</span></div>`;
+    B.moon = `<div class="log-row"><span class="hint" style="margin:0;">${moonPhaseLabel(e.date) || ""} (that night)</span></div>`;
+    B.date = `<div class="log-row">
+      <label style="flex:1;">${hint("Date")}
       ${DateInput.html(e.date, "SpeciesLog.updateDraft('date', v)")}</label>
-      ${!isFlat ? `<div class="row-below"><label style="width:92px;"><span class="hint" style="display:block; margin:0 0 2px;">AM/PM</span><select onchange="SpeciesLog.updateDraft('ampm',this.value)">
+    </div>`;
+    B.ampm = `<div class="log-row"><label style="width:92px;">${hint("AM/PM")}<select onchange="SpeciesLog.updateDraft('ampm',this.value)">
         <option value="" ${!e.ampm ? "selected" : ""}>Not set</option>
         <option ${e.ampm === "AM" ? "selected" : ""}>AM</option>
         <option ${e.ampm === "PM" ? "selected" : ""}>PM</option>
-      </select></label></div>` : ""}
-    </div>`;
-
-    if (isFlat) {
-      if (isWinged) {
-        html += `<div class="section-title" style="margin-top:8px;"><h4>Species</h4></div>`;
-        (e.lines || []).forEach((line, lineIdx) => {
-          html += `<div class="log-row">
-            <label style="flex:1;"><span class="hint" style="display:block; margin:0 0 2px;">Species</span>
-            <select onchange="SpeciesLog.updateDraftLine(${lineIdx},'category',this.value)">
-              ${WINGED_VERMIN_LIST.map((c) => `<option ${c === line.category ? "selected" : ""}>${c}</option>`).join("")}
-            </select></label>
-            <label style="width:90px;"><span class="hint" style="display:block; margin:0 0 2px;">Amount</span>
-            <input type="number" min="0" placeholder="Amount" value="${line.shots}" onchange="SpeciesLog.updateDraftLine(${lineIdx},'shots',this.value)" /></label>
-            <button class="icon-btn" onclick="SpeciesLog.removeDraftLine(${lineIdx})">✕</button>
-          </div>`;
-        });
-        html += `<button class="btn small ghost" onclick="SpeciesLog.addDraftLine()">+ Add species</button>`;
-        html += `<div class="log-row" style="margin-top:8px;">${Popup.labeled("Shots taken (whole day)", `<input type="number" min="0" placeholder="Shots taken" value="${e.shotsTaken === undefined || e.shotsTaken === null ? "" : e.shotsTaken}" onchange="SpeciesLog.updateDraft('shotsTaken',this.value)" />`)}</div>`;
-      } else {
-        html += `<div class="log-row"><label style="width:120px;"><span class="hint" style="display:block; margin:0 0 2px;">Amount</span><input type="number" min="0" placeholder="Amount" value="${e.shots}" onchange="SpeciesLog.updateDraft('shots',this.value)" /></label></div>`;
-      }
-      // Location: your properties, then the places you've saved (Game Shooting, Clay, Zeroing, earlier "Other" places),
-      // then "+ Add new place" / "Other (type below)". Saved places are NOT properties.
-      const saved = Places.saved();
-      const onOther = !e.farmId || e.farmId === "other";
-      const onPlace = onOther && e.locationText && saved.includes(e.locationText);
-      const sel = onPlace ? "place:" + e.locationText : (onOther ? "other" : e.farmId);
-      html += `<div class="log-row">
-        <label style="flex:1;"><span class="hint" style="display:block; margin:0 0 2px;">Location</span>
-        <select onchange="SpeciesLog.setFlatLocation(this.value)">
-          ${farms.length ? `<optgroup label="My properties">${farms.map((f) => `<option value="${f.id}" ${sel === f.id ? "selected" : ""}>${escapeHtml(f.name)}</option>`).join("")}</optgroup>` : ""}
-          ${saved.length ? `<optgroup label="Saved places">${saved.map((p) => `<option value="place:${escapeHtml(p)}" ${sel === "place:" + p ? "selected" : ""}>${escapeHtml(p)}</option>`).join("")}</optgroup>` : ""}
-          <option value="__add_place__">+ Add new place</option>
-          <option value="other" ${sel === "other" ? "selected" : ""}>Other (type below)</option>
+      </select></label></div>`;
+    B.category = `<div class="log-row">
+        <label style="flex:1;">${hint("Category")}
+        <select onchange="SpeciesLog.updateDraft('category',this.value)">
+          ${(def.categories || []).map((c) => `<option ${c === e.category ? "selected" : ""}>${c}</option>`).join("")}
         </select></label>
       </div>`;
-      if (sel === "other") {
-        html += `<div class="log-row"><label style="flex:1;"><span class="hint" style="display:block; margin:0 0 2px;">Type a location</span><input type="text" placeholder="Type a location" value="${escapeHtml(e.locationText || "")}" onchange="SpeciesLog.updateDraft('locationText',this.value)" /></label></div>`;
-      }
-    } else if (isRich) {
-      const conditions = (typeof DEER_CONDITIONS !== "undefined") ? DEER_CONDITIONS : ["Good", "Fair", "Poor", "Rejected"];
-      html += `<div class="log-row">
-        <label style="flex:1;"><span class="hint" style="display:block; margin:0 0 2px;">Category</span>
-        <select onchange="SpeciesLog.updateDraft('category',this.value)">
-          ${def.categories.map((c) => `<option ${c === e.category ? "selected" : ""}>${c}</option>`).join("")}
-        </select></label>
-      </div>
-      <div class="log-row">
-        <label style="flex:1;"><span class="hint" style="display:block; margin:0 0 2px;">Location</span>
-          <input type="text" placeholder="Location" value="${e.location || ""}" onchange="SpeciesLog.updateDraft('location',this.value)" />
-        </label>
-        <div class="row-below"><label style="width:100px;"><span class="hint" style="display:block; margin:0 0 2px;">Time</span>
-          <input type="time" value="${e.time || ""}" onchange="SpeciesLog.updateDraft('time',this.value)" />
-        </label></div>
-      </div>
-      <div class="log-row">
-        <label style="flex:1;"><span class="hint" style="display:block; margin:0 0 2px;">Weight (kg)</span>
-          <input type="number" placeholder="Weight (kg)" value="${e.weight || ""}" onchange="SpeciesLog.updateDraft('weight',this.value)" />
-        </label>
-        <div class="row-below"><label style="width:100px;"><span class="hint" style="display:block; margin:0 0 2px;">Tag no.</span>
-          <input type="text" placeholder="Tag no." value="${e.tag || ""}" onchange="SpeciesLog.updateDraft('tag',this.value)" />
-        </label></div>
-      </div>
-      <div class="log-row">
-        <label style="flex:1;"><span class="hint" style="display:block; margin:0 0 2px;">Condition</span>
-          <select onchange="SpeciesLog.updateDraft('condition',this.value)">
-            ${conditions.map((c) => `<option ${c === e.condition ? "selected" : ""}>${c}</option>`).join("")}
-          </select>
-        </label>
-      </div>
-      <div class="log-row">
-        <label style="flex:1;"><span class="hint" style="display:block; margin:0 0 2px;">Abnormalities</span>
-          <input type="text" placeholder="Abnormalities" value="${e.abnormalities || ""}" onchange="SpeciesLog.updateDraft('abnormalities',this.value)" />
-        </label>
-      </div>
-      <div class="log-row">
-        <label style="flex:1;"><span class="hint" style="display:block; margin:0 0 2px;">Shot placement</span>
-          <input type="text" placeholder="Shot placement" value="${e.shotPlacement || ""}" onchange="SpeciesLog.updateDraft('shotPlacement',this.value)" />
-        </label>
-      </div>
-      <div class="log-row">
-        <label style="flex:1;"><span class="hint" style="display:block; margin:0 0 2px;">Shot by</span>
-          <input type="text" placeholder="Shot by" value="${e.shotBy || ""}" onchange="SpeciesLog.updateDraft('shotBy',this.value)" />
-        </label>
-        <label style="flex:1;"><span class="hint" style="display:block; margin:0 0 2px;">Inspected by</span>
-          <input type="text" placeholder="Inspected by" value="${e.recordedBy || ""}" onchange="SpeciesLog.updateDraft('recordedBy',this.value)" />
-        </label>
-      </div>
-      <div class="log-row">
-        <label style="flex:1;"><span class="hint" style="display:block; margin:0 0 2px;">Destination</span>
-          <input type="text" placeholder="Destination" value="${e.destination || ""}" onchange="SpeciesLog.updateDraft('destination',this.value)" />
-        </label>
-      </div>
-      ${Fields.propertyAndFieldHtml(e, "SpeciesLog")}`;
-    } else {
-      html += `<div class="log-row">
-        <label style="flex:1;"><span class="hint" style="display:block; margin:0 0 2px;">Category</span>
-        <select onchange="SpeciesLog.updateDraft('category',this.value)">
-          ${def.categories.map((c) => `<option ${c === e.category ? "selected" : ""}>${c}</option>`).join("")}
-        </select></label>
-      </div>
-      <div class="log-row">
-        <label style="flex:1;"><span class="hint" style="display:block; margin:0 0 2px;">Area (within property)</span>
-          <input type="text" placeholder="Area" value="${e.area || ""}" onchange="SpeciesLog.updateDraft('area',this.value)" />
-        </label>
-        <div class="row-below"><label style="width:80px;"><span class="hint" style="display:block; margin:0 0 2px;">Shots</span>
+    B.shots = `<div class="log-row"><label style="width:80px;">${hint("Shots")}
           <input type="number" min="0" placeholder="Shots" value="${e.shots}" onchange="SpeciesLog.updateDraft('shots',this.value)" />
-        </label></div>
-      </div>
-      ${Fields.propertyAndFieldHtml(e, "SpeciesLog")}`;
-    }
-
-    if (w3wEnabled) {
-      html += `<div class="log-row">
-        <label style="flex:1;"><span class="hint" style="display:block; margin:0 0 2px;">what3words</span>
-          <input type="text" placeholder="///what3words" value="${e.what3words || ""}" onchange="SpeciesLog.saveTypedWords(this.value)" />
-        </label>
-        <div class="row-below"><button class="btn small ghost" onclick="SpeciesLog.captureW3w()">📍 Auto</button></div>
-      </div>
-      <div class="log-row">${Popup.labeled("Coordinates (latitude, longitude)", `<input type="text" placeholder="e.g. 54.9353, -5.1566 or N54° 56.117' W005° 09.396'" value="${Fields.coordinatesText(e)}" onchange="SpeciesLog.saveCoordinates(this.value)" />`)}</div>`;
-    }
-
-    html += `<div class="log-row"><span class="hint" style="margin:0;">🌦️ Weather: ${e.weather || "— (set a location to auto-fill)"}</span></div>`;
-    html += `<div class="log-row"><span class="hint" style="margin:0;">${moonPhaseLabel(e.date) || ""} (that night)</span></div>`;
-    html += `<div class="log-row">
-      <label style="flex:1;"><span class="hint" style="display:block; margin:0 0 2px;">Firearm</span>
+        </label></div>`;
+    B.amount = `<div class="log-row"><label style="width:120px;">${hint("Amount")}<input type="number" min="0" placeholder="Amount" value="${e.shots}" onchange="SpeciesLog.updateDraft('shots',this.value)" /></label></div>`;
+    B.area = textRow("Area (within property)", "area", "Area");
+    B.propField = Fields.propertyAndFieldHtml(e, "SpeciesLog");
+    B.firearm = `<div class="log-row">
+      <label style="flex:1;">${hint("Firearm")}
       <select onchange="SpeciesLog.handleFirearmChange(this)">
         <option value="" ${!e.firearm ? "selected" : ""}>Firearm…</option>
         ${Firearms.list().map((f) => `<option ${f === e.firearm ? "selected" : ""}>${f}</option>`).join("")}
         <option value="__add_new__">+ Add new firearm…</option>
       </select></label>
     </div>`;
-    html += `<div class="log-row"><label style="flex:1;"><span class="hint" style="display:block; margin:0 0 2px;">Location notes</span><input type="text" placeholder="On-the-ground spot description" value="${e.locationNotes || ""}" onchange="SpeciesLog.updateDraft('locationNotes',this.value)" /></label></div>`;
-    html += `<div class="log-row"><label style="flex:1;"><span class="hint" style="display:block; margin:0 0 2px;">Notes</span><input type="text" placeholder="Notes" value="${e.notes || ""}" onchange="SpeciesLog.updateDraft('notes',this.value)" /></label></div>`;
-    html += `<div class="log-row photo-row">
+    B.locNotes = textRow("Location notes", "locationNotes", "On-the-ground spot description");
+    B.notes = textRow("Notes", "notes", "Notes");
+    B.w3w = `<div class="log-row">
+        <label style="flex:1;">${hint("what3words")}
+          <input type="text" placeholder="///what3words" value="${e.what3words || ""}" onchange="SpeciesLog.saveTypedWords(this.value)" />
+        </label>
+        <div class="row-below"><button class="btn small ghost" onclick="SpeciesLog.captureW3w()">📍 Auto</button></div>
+      </div>`;
+    B.coords = `<div class="log-row">${Popup.labeled("Coordinates (latitude, longitude)", `<input type="text" placeholder="e.g. 54.9353, -5.1566 or N54° 56.117' W005° 09.396'" value="${Fields.coordinatesText(e)}" onchange="SpeciesLog.saveCoordinates(this.value)" />`)}</div>`;
+    B.photos = `<div class="log-row photo-row">
       ${photoThumbs}
       <label class="btn small ghost" style="cursor:pointer;">📷 Take photo
         <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="SpeciesLog.addPhoto(this)" />
@@ -690,6 +590,97 @@ const SpeciesLog = {
         <input type="file" accept="image/*" multiple style="display:none;" onchange="SpeciesLog.addPhoto(this)" />
       </label>
     </div>`;
+
+    // Winged Vermin: one line per species + the whole-day shots
+    B.wingedLines = "";
+    if (isWinged) {
+      let h = `<div class="section-title" style="margin-top:8px;"><h4>Species</h4></div>`;
+      (e.lines || []).forEach((line, lineIdx) => {
+        h += `<div class="log-row">
+            <label style="flex:1;">${hint("Species")}
+            <select onchange="SpeciesLog.updateDraftLine(${lineIdx},'category',this.value)">
+              ${WINGED_VERMIN_LIST.map((c) => `<option ${c === line.category ? "selected" : ""}>${c}</option>`).join("")}
+            </select></label>
+            <label style="width:90px;">${hint("Amount")}
+            <input type="number" min="0" placeholder="Amount" value="${line.shots}" onchange="SpeciesLog.updateDraftLine(${lineIdx},'shots',this.value)" /></label>
+            <button class="icon-btn" onclick="SpeciesLog.removeDraftLine(${lineIdx})">✕</button>
+          </div>`;
+      });
+      h += `<button class="btn small ghost" onclick="SpeciesLog.addDraftLine()">+ Add species</button>`;
+      B.wingedLines = h;
+      B.shotsTaken = `<div class="log-row" style="margin-top:8px;">${Popup.labeled("Shots taken (whole day)", `<input type="number" min="0" placeholder="Shots taken" value="${e.shotsTaken === undefined || e.shotsTaken === null ? "" : e.shotsTaken}" onchange="SpeciesLog.updateDraft('shotsTaken',this.value)" />`)}</div>`;
+    }
+
+    // Rabbit / Rats / Winged: Location = your properties, then saved places, then "+ Add new place" / "Other".
+    // Saved places are NOT properties.
+    B.flatLocation = "";
+    if (isFlat) {
+      const saved = Places.saved();
+      const onOther = !e.farmId || e.farmId === "other";
+      const onPlace = onOther && e.locationText && saved.includes(e.locationText);
+      const sel = onPlace ? "place:" + e.locationText : (onOther ? "other" : e.farmId);
+      let h = `<div class="log-row">
+        <label style="flex:1;">${hint("Location")}
+        <select onchange="SpeciesLog.setFlatLocation(this.value)">
+          ${farms.length ? `<optgroup label="My properties">${farms.map((f) => `<option value="${f.id}" ${sel === f.id ? "selected" : ""}>${escapeHtml(f.name)}</option>`).join("")}</optgroup>` : ""}
+          ${saved.length ? `<optgroup label="Saved places">${saved.map((p) => `<option value="place:${escapeHtml(p)}" ${sel === "place:" + p ? "selected" : ""}>${escapeHtml(p)}</option>`).join("")}</optgroup>` : ""}
+          <option value="__add_place__">+ Add new place</option>
+          <option value="other" ${sel === "other" ? "selected" : ""}>Other (type below)</option>
+        </select></label>
+      </div>`;
+      if (sel === "other") {
+        h += `<div class="log-row"><label style="flex:1;">${hint("Type a location")}<input type="text" placeholder="Type a location" value="${escapeHtml(e.locationText || "")}" onchange="SpeciesLog.updateDraft('locationText',this.value)" /></label></div>`;
+      }
+      B.flatLocation = h;
+    }
+
+    // Goats / Boar: the same set of boxes as Deer
+    if (isRich) {
+      const conditions = (typeof DEER_CONDITIONS !== "undefined") ? DEER_CONDITIONS : ["Good", "Fair", "Poor", "Rejected"];
+      B.location = textRow("Location", "location", "Location");
+      B.time = `<div class="log-row"><label style="width:100px;">${hint("Time")}
+          <input type="time" value="${e.time || ""}" onchange="SpeciesLog.updateDraft('time',this.value)" />
+        </label></div>`;
+      B.weight = `<div class="log-row"><label style="flex:1;">${hint("Weight (kg)")}
+          <input type="number" placeholder="Weight (kg)" value="${e.weight || ""}" onchange="SpeciesLog.updateDraft('weight',this.value)" />
+        </label></div>`;
+      B.tag = `<div class="log-row"><label style="width:100px;">${hint("Tag no.")}
+          <input type="text" placeholder="Tag no." value="${e.tag || ""}" onchange="SpeciesLog.updateDraft('tag',this.value)" />
+        </label></div>`;
+      B.condition = `<div class="log-row"><label style="flex:1;">${hint("Condition")}
+          <select onchange="SpeciesLog.updateDraft('condition',this.value)">
+            ${conditions.map((c) => `<option ${c === e.condition ? "selected" : ""}>${c}</option>`).join("")}
+          </select>
+        </label></div>`;
+      B.abnormalities = textRow("Abnormalities", "abnormalities");
+      B.shotPlacement = textRow("Shot placement", "shotPlacement");
+      B.shotByInspected = `<div class="log-row">
+        <label style="flex:1;">${hint("Shot by")}
+          <input type="text" placeholder="Shot by" value="${e.shotBy || ""}" onchange="SpeciesLog.updateDraft('shotBy',this.value)" />
+        </label>
+        <label style="flex:1;">${hint("Inspected by")}
+          <input type="text" placeholder="Inspected by" value="${e.recordedBy || ""}" onchange="SpeciesLog.updateDraft('recordedBy',this.value)" />
+        </label>
+      </div>`;
+      B.destination = textRow("Destination", "destination");
+    }
+
+    // ---- The order of each form, top to bottom (as laid out by Ben) ----
+    let ORDER;
+    if (isWinged) {
+      ORDER = ["weather", "moon", "date", "wingedLines", "shotsTaken", "firearm", "flatLocation", "locNotes", "w3w", "coords", "notes", "photos"];
+    } else if (isFlat) {   // Rabbit, Rats
+      ORDER = ["weather", "moon", "date", "amount", "firearm", "flatLocation", "locNotes", "w3w", "coords", "notes", "photos"];
+    } else if (isRich) {   // Goats, Boar
+      ORDER = ["weather", "moon", "date", "category", "firearm", "propField", "location", "locNotes", "shotByInspected", "ampm", "time", "weight", "shotPlacement", "condition", "abnormalities", "tag", "destination", "w3w", "coords", "notes", "photos"];
+    } else {               // Fox, Squirrel (no AM/PM)
+      ORDER = ["weather", "moon", "date", "category", "shots", "firearm", "propField", "area", "locNotes", "w3w", "coords", "notes", "photos"];
+    }
+    if (!w3wEnabled) ORDER = ORDER.filter((k) => k !== "w3w" && k !== "coords");
+
+    let html = Popup.header(`${def.title} Entry`);
+    html += `<div style="padding:0 16px 16px;">`;
+    ORDER.forEach((k) => { html += B[k] || ""; });
     html += `${Popup.removeFooter("SpeciesLog.removeDraft()", "Remove entry")}`;
     html += Popup.saveFooter("SpeciesLog.saveDraft()");
     html += `</div>`;

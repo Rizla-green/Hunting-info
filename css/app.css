@@ -926,3 +926,7 @@ table.data-table td {
   padding: 9px 12px; font-size: 14px;
 }
 .popup-remove-btn.popup-footer-btn { margin-top: 14px; }
+
+/* ---------- v4.17.16: reorder properties (Land and Farms) ---------- */
+.prop-row .reorder-btns { display: flex; gap: 4px; margin-left: auto; flex-shrink: 0; }
+.prop-row .reorder-btns .btn[disabled] { opacity: 0.3; }
