@@ -228,7 +228,7 @@ const Zeroing = {
     </div>
     <div class="log-row">
       ${Popup.labeled("what3words", `<input type="text" placeholder="///what3words" value="${s.what3words || ""}" onchange="Zeroing.updateDraft('what3words',this.value)" />`)}
-      <button class="btn small ghost" onclick="Zeroing.captureW3w()">📍 Auto</button>
+      <div class="row-below"><button class="btn small ghost" onclick="Zeroing.captureW3w()">📍 Auto</button></div>
     </div>
     <div class="log-row">
       ${Popup.labeled("Distance zeroed (m)", `<input type="number" placeholder="Distance zeroed (m)" value="${s.distance}" onchange="Zeroing.updateDraft('distance',this.value)" />`)}

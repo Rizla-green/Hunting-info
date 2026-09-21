@@ -914,3 +914,15 @@ table.data-table td {
   background: #f4f1e8; color: #8b1e1e; border: 0; border-radius: 8px;
   padding: 7px 12px; font-size: 13px; font-weight: 600; cursor: pointer;
 }
+
+/* ---------- v4.17.15: neater entry popups ---------- */
+/* A small box (AM/PM, Shots, Time, Tag no., 📍 Auto, Shot…) sits on its own line under the box it belongs to, left-aligned. */
+.row-below { flex: 0 0 100%; display: flex; gap: 6px; align-items: flex-end; }
+/* Popups never scroll sideways (a too-wide row used to add a bottom scroll bar and cut boxes off). */
+.popup-card { overflow-x: hidden; }
+/* Save / Remove at the bottom: smaller, lined up with the boxes above (they sit inside the popup's padded area). */
+.popup-save-btn.popup-footer-btn {
+  width: 100%; box-sizing: border-box; margin: 8px 0 0;
+  padding: 9px 12px; font-size: 14px;
+}
+.popup-remove-btn.popup-footer-btn { margin-top: 14px; }

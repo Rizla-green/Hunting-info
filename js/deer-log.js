@@ -858,11 +858,11 @@ const DeerLog = {
     ${Fields.selectRowHtml(e, "DeerLog")}
     <div class="log-row">
       ${on("location") ? Popup.labeled("Location", `<input type="text" placeholder="Location" value="${e.location || ""}" onchange="DeerLog.updateDraft('location',this.value)" />`) : ""}
-      ${on("time") ? Popup.labeled("Time", `<input type="time" value="${e.time || ""}" onchange="DeerLog.updateDraft('time',this.value)" />`, "width:100px;") : ""}
+      ${on("time") ? `<div class="row-below">${Popup.labeled("Time", `<input type="time" value="${e.time || ""}" onchange="DeerLog.updateDraft('time',this.value)" />`, "width:100px;")}</div>` : ""}
     </div>
     ${on("what3words") ? `<div class="log-row">
       ${Popup.labeled("what3words", `<input type="text" placeholder="///what3words" value="${e.what3words || ""}" onchange="DeerLog.saveTypedWords(this.value)" />`)}
-      <button class="btn small ghost" onclick="DeerLog.captureW3w()">📍 Auto</button>
+      <div class="row-below"><button class="btn small ghost" onclick="DeerLog.captureW3w()">📍 Auto</button></div>
     </div>
     <div class="log-row">${Popup.labeled("Coordinates (latitude, longitude)", `<input type="text" placeholder="e.g. 54.9353, -5.1566 or N54° 56.117' W005° 09.396'" value="${Fields.coordinatesText(e)}" onchange="DeerLog.saveCoordinates(this.value)" />`)}</div>` : ""}
     <div class="log-row"><span class="hint" style="margin:0;">🌦️ Weather: ${e.weather || "— (set a location to auto-fill)"}</span></div>
@@ -870,9 +870,9 @@ const DeerLog = {
     <div class="log-row">
       ${on("weight") ? Popup.labeled("Weight (kg)", `<input type="number" placeholder="Weight (kg)" value="${e.weight || ""}" onchange="DeerLog.updateDraft('weight',this.value)" />`, "width:100px;") : ""}
       ${on("tag") ? Popup.labeled("Tag no.", `<input type="text" placeholder="Tag no." value="${e.tag || ""}" onchange="DeerLog.updateDraft('tag',this.value)" />`, "width:90px;") : ""}
-      ${on("condition") ? Popup.labeled("Condition", `<select onchange="DeerLog.updateDraft('condition',this.value)">
+      ${on("condition") ? `<div class="row-below">${Popup.labeled("Condition", `<select onchange="DeerLog.updateDraft('condition',this.value)">
         ${DEER_CONDITIONS.map((c) => `<option ${c === e.condition ? "selected" : ""}>${c}</option>`).join("")}
-      </select>`) : ""}
+      </select>`)}</div>` : ""}
     </div>
     ${on("firearm") ? `<div class="log-row">
       ${Popup.labeled("Firearm", `<select onchange="DeerLog.handleFirearmChange(this)">

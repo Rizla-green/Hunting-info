@@ -542,11 +542,11 @@ const SpeciesLog = {
     html += `<div class="log-row">
       <label style="flex:1;"><span class="hint" style="display:block; margin:0 0 2px;">Date</span>
       ${DateInput.html(e.date, "SpeciesLog.updateDraft('date', v)")}</label>
-      ${!isFlat ? `<label style="width:92px;"><span class="hint" style="display:block; margin:0 0 2px;">AM/PM</span><select onchange="SpeciesLog.updateDraft('ampm',this.value)">
+      ${!isFlat ? `<div class="row-below"><label style="width:92px;"><span class="hint" style="display:block; margin:0 0 2px;">AM/PM</span><select onchange="SpeciesLog.updateDraft('ampm',this.value)">
         <option value="" ${!e.ampm ? "selected" : ""}>Not set</option>
         <option ${e.ampm === "AM" ? "selected" : ""}>AM</option>
         <option ${e.ampm === "PM" ? "selected" : ""}>PM</option>
-      </select></label>` : ""}
+      </select></label></div>` : ""}
     </div>`;
 
     if (isFlat) {
@@ -598,17 +598,17 @@ const SpeciesLog = {
         <label style="flex:1;"><span class="hint" style="display:block; margin:0 0 2px;">Location</span>
           <input type="text" placeholder="Location" value="${e.location || ""}" onchange="SpeciesLog.updateDraft('location',this.value)" />
         </label>
-        <label style="width:100px;"><span class="hint" style="display:block; margin:0 0 2px;">Time</span>
+        <div class="row-below"><label style="width:100px;"><span class="hint" style="display:block; margin:0 0 2px;">Time</span>
           <input type="time" value="${e.time || ""}" onchange="SpeciesLog.updateDraft('time',this.value)" />
-        </label>
+        </label></div>
       </div>
       <div class="log-row">
         <label style="flex:1;"><span class="hint" style="display:block; margin:0 0 2px;">Weight (kg)</span>
           <input type="number" placeholder="Weight (kg)" value="${e.weight || ""}" onchange="SpeciesLog.updateDraft('weight',this.value)" />
         </label>
-        <label style="width:100px;"><span class="hint" style="display:block; margin:0 0 2px;">Tag no.</span>
+        <div class="row-below"><label style="width:100px;"><span class="hint" style="display:block; margin:0 0 2px;">Tag no.</span>
           <input type="text" placeholder="Tag no." value="${e.tag || ""}" onchange="SpeciesLog.updateDraft('tag',this.value)" />
-        </label>
+        </label></div>
       </div>
       <div class="log-row">
         <label style="flex:1;"><span class="hint" style="display:block; margin:0 0 2px;">Condition</span>
@@ -652,9 +652,9 @@ const SpeciesLog = {
         <label style="flex:1;"><span class="hint" style="display:block; margin:0 0 2px;">Area (within property)</span>
           <input type="text" placeholder="Area" value="${e.area || ""}" onchange="SpeciesLog.updateDraft('area',this.value)" />
         </label>
-        <label style="width:80px;"><span class="hint" style="display:block; margin:0 0 2px;">Shots</span>
+        <div class="row-below"><label style="width:80px;"><span class="hint" style="display:block; margin:0 0 2px;">Shots</span>
           <input type="number" min="0" placeholder="Shots" value="${e.shots}" onchange="SpeciesLog.updateDraft('shots',this.value)" />
-        </label>
+        </label></div>
       </div>
       ${Fields.propertyAndFieldHtml(e, "SpeciesLog")}`;
     }
@@ -664,7 +664,7 @@ const SpeciesLog = {
         <label style="flex:1;"><span class="hint" style="display:block; margin:0 0 2px;">what3words</span>
           <input type="text" placeholder="///what3words" value="${e.what3words || ""}" onchange="SpeciesLog.saveTypedWords(this.value)" />
         </label>
-        <button class="btn small ghost" onclick="SpeciesLog.captureW3w()">📍 Auto</button>
+        <div class="row-below"><button class="btn small ghost" onclick="SpeciesLog.captureW3w()">📍 Auto</button></div>
       </div>
       <div class="log-row">${Popup.labeled("Coordinates (latitude, longitude)", `<input type="text" placeholder="e.g. 54.9353, -5.1566 or N54° 56.117' W005° 09.396'" value="${Fields.coordinatesText(e)}" onchange="SpeciesLog.saveCoordinates(this.value)" />`)}</div>`;
     }

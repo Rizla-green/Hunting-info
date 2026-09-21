@@ -301,8 +301,8 @@ const GameShooting = {
           ${Popup.labeled("Species", `<select onchange="GameShooting.updateSpeciesLine(${lineIdx},'species',this.value)">
             ${GAME_DAY_SPECIES_LIST.map((b) => `<option ${b === line.species ? "selected" : ""}>${b}</option>`).join("")}
           </select>`)}
-          ${Popup.labeled("Shot", `<input type="number" min="0" placeholder="Shot" value="${line.hits}" onchange="GameShooting.updateSpeciesLine(${lineIdx},'hits',this.value)" style="width:90px;" />`, "flex:none;")}
-          <button class="icon-btn" style="align-self:flex-end;" onclick="GameShooting.removeSpeciesLine(${lineIdx})">✕</button>
+          <div class="row-below">${Popup.labeled("Shot", `<input type="number" min="0" placeholder="Shot" value="${line.hits}" onchange="GameShooting.updateSpeciesLine(${lineIdx},'hits',this.value)" style="width:90px;" />`, "flex:none;")}
+          <button class="icon-btn" style="align-self:flex-end;" onclick="GameShooting.removeSpeciesLine(${lineIdx})">✕</button></div>
         </div>`)
       .join("");
 
@@ -312,8 +312,8 @@ const GameShooting = {
           ${Popup.labeled("Species", `<select onchange="GameShooting.updateDayTotalLine(${lineIdx},'species',this.value)">
             ${[...GAME_DAY_SPECIES_LIST, "Other"].map((sp) => `<option ${sp === line.species ? "selected" : ""}>${sp}</option>`).join("")}
           </select>`)}
-          ${Popup.labeled("Day total", `<input type="number" min="0" value="${line.amount || 0}" onchange="GameShooting.updateDayTotalLine(${lineIdx},'amount',this.value)" style="width:80px;" />`, "flex:none;")}
-          <button class="icon-btn" style="align-self:flex-end;" onclick="GameShooting.removeDayTotalLine(${lineIdx})">✕</button>
+          <div class="row-below">${Popup.labeled("Day total", `<input type="number" min="0" value="${line.amount || 0}" onchange="GameShooting.updateDayTotalLine(${lineIdx},'amount',this.value)" style="width:80px;" />`, "flex:none;")}
+          <button class="icon-btn" style="align-self:flex-end;" onclick="GameShooting.removeDayTotalLine(${lineIdx})">✕</button></div>
         </div>`)
       .join("");
 
@@ -332,7 +332,7 @@ const GameShooting = {
     </div>`;
     html += `<div class="log-row">
       ${Popup.labeled("what3words", `<input type="text" placeholder="///what3words" value="${day.what3words || ""}" onchange="GameShooting.updateDraft('what3words',this.value)" />`)}
-      <button class="btn small ghost" onclick="GameShooting.captureW3w()">📍 Auto</button>
+      <div class="row-below"><button class="btn small ghost" onclick="GameShooting.captureW3w()">📍 Auto</button></div>
     </div>`;
     html += `<div class="log-row"><span class="hint" style="margin:0;">🌦️ Weather: ${day.weather || "— (set a location to auto-fill)"}</span></div>`;
     html += `<div class="log-row"><span class="hint" style="margin:0;">${moonPhaseLabel(day.date) || ""} (that night)</span></div>`;

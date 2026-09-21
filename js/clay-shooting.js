@@ -240,7 +240,7 @@ const ClayShooting = {
     <div class="log-row"><span class="hint" style="margin:0;">${pct}% hit</span></div>
     <div class="log-row">
       ${Popup.labeled("what3words", `<input type="text" placeholder="///what3words" value="${e.what3words || ""}" onchange="ClayShooting.updateDraft('what3words',this.value)" />`)}
-      <button class="btn small ghost" onclick="ClayShooting.captureW3w()">📍 Auto</button>
+      <div class="row-below"><button class="btn small ghost" onclick="ClayShooting.captureW3w()">📍 Auto</button></div>
     </div>
     <div class="log-row">
       ${Popup.labeled("Firearm", `<select onchange="ClayShooting.handleFirearmChange(this)">
