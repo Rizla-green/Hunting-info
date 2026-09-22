@@ -307,9 +307,11 @@ function handleStopMatchFields() {
 }
 
 function handleExportEverything() {
-  // TODO: swap this placeholder for the real Firestore-backed data store
-  // once the data layer is wired up.
-  exportEverything({ note: "placeholder — full dataset wired in once Firestore is connected" });
+  // Was exporting a leftover placeholder instead of the real data (fixed in v4.17.17).
+  // window.APP_DATA IS the live, saved data store (see firestore-data.js) — currentUser is
+  // stripped so the file doesn't contain who was logged in when it was made.
+  const { currentUser, ...everything } = window.APP_DATA;
+  exportEverything(everything);
 }
 
 function labelFor(key) {
@@ -391,6 +393,37 @@ function isAdminUser(user) {
   return user && user.email === ADMIN_EMAIL;
 }
 
+// Straightens up any Fox/Squirrel/Goats/Boar category that only differs from the
+// real spelling ("Dog", "Vixen", "Dog cub", "Vixen cub", etc.) by capitalisation
+// or stray spaces — e.g. Ben's "Dog Cub" entries, which matched nothing and were
+// silently left out of that species' Overview totals. Runs once after load; only
+// fixes an exact case/space-insensitive match to a real category, so it can't
+// mis-fix genuinely blank or unrelated text. Saves only if it changed something.
+function fixSpeciesCategoryCasing() {
+  let fixed = 0;
+  const bySection = {};
+  ["fox", "squirrel", "goats", "boar"].forEach((key) => {
+    const def = SPECIES_SECTIONS[key];
+    if (!def || !def.categories) return;
+    const lookup = {};
+    def.categories.forEach((c) => { lookup[c.trim().toLowerCase()] = c; });
+    (window.APP_DATA.species && window.APP_DATA.species[key] || []).forEach((e) => {
+      if (!e.category) return;
+      const right = lookup[e.category.trim().toLowerCase()];
+      if (right && right !== e.category) {
+        e.category = right;
+        fixed++;
+        bySection[key] = (bySection[key] || 0) + 1;
+      }
+    });
+  });
+  if (fixed) {
+    console.info("Fixed category spelling on", fixed, "entries:", bySection);
+    persistData();
+  }
+  return fixed;
+}
+
 function watchAuthState() {
   firebaseAuth.onAuthStateChanged(async (user) => {
     if (user) {
@@ -401,6 +434,7 @@ function watchAuthState() {
       document.getElementById("menuScreen").classList.remove("hidden");
       await loadAppData();
       window.__dataLoaded = true;
+      fixSpeciesCategoryCasing();
       renderMenu();
       retryPendingPhotoUploads();   // any photo that never finished uploading last time
       maybeRunWeeklyBackup();
